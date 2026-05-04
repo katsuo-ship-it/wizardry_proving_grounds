@@ -17,7 +17,7 @@
 
 - **ターゲット仕様**: 1981 年オリジナル Apple II 版（v3.2 ではなく原典）
 - **独自追加**: 寺院 (Temple of Cant) でのセーブ機能のみ。フレーバー上は「神官の年代記に旅路を記す」と読み替える
-- **仕様参照**: snafaru/Wizardry.Code の `.DSK` から CiderPress で抽出した Pascal ソースを `docs/reference/` に配置し、コード実装と並べて参照する。Pascal で読み解けない部分は <https://www.tk421.net/wizardry/wiz1maps.shtml> を二次ソースとする
+- **仕様参照**: snafaru/Wizardry.Code の `.DSK` から CiderPress で抽出した Pascal ソースを `docs/reference/` に配置し、コード実装と並べて参照する。Pascal で読み解けない部分は二次ソースを使う（[付録 B](#付録-b-参考資料) 参照）
 
 ### 章割り（リリース計画）
 
@@ -59,10 +59,11 @@
 9. 1F の壁・扉・階段に従って歩行（前進・後退・左回転・右回転）
 10. 1F の壁・扉・階段を Apple II 原典のワイヤーフレーム 3D 視点で描画する（**自動マッピングは実装しない** — 原典通り、プレイヤーが手書きでマッピングする体験を維持）
 11. 迷宮内 Camp（最低限）→ Edge of Town へ Quit（戻る）
-12. Castle → Temple of Cant でセーブ → タイトル → Continue で復元（**独自追加機能**）
-13. 設定で日本語/英語切替（プレイ中の動的切替対応）
-14. ブラウザリロードしても状態が永続化されている
-15. ウィンドウリサイズで整数倍スケールを維持
+12. 1F 上り階段でも Edge of Town へ脱出
+13. Castle → Temple of Cant でセーブ → タイトル → Continue で復元（**独自追加機能**）
+14. 設定で日本語/英語切替（プレイ中の動的切替対応）
+15. ブラウザリロードしても状態が永続化されている
+16. ウィンドウリサイズで整数倍スケールを維持
 
 ### Chapter 1 で行わないこと
 
@@ -359,7 +360,7 @@ type GameEvent =
   | { type: 'moveBackward' }
   | { type: 'openCamp' }
   | { type: 'descendStairs' }                               // Chapter 1 は B2F なし → エラーメッセージ
-  | { type: 'ascendStairs' }                                // → Castle 帰還 (1F の上り階段)
+  | { type: 'ascendStairs' }                                // 1F の上り階段 → Edge of Town へ脱出 (1981 オリジナル踏襲)
 
   // Camp (Chapter 1 範囲)
   | { type: 'leaveCamp' }                                   // 迷宮へ戻る
@@ -393,7 +394,7 @@ castle
 maze
   ├── (move/turn)   ─→ maze
   ├── (openCamp)    ─→ camp
-  └── (ascendStairs:1F上り) ─→ castle
+  └── (ascendStairs:1F上り) ─→ edgeOfTown
 
 camp
   ├── (leaveCamp)   ─→ maze
