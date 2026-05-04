@@ -26,23 +26,41 @@
 - **Chapter 3**: 呪文（Mage 25 種 + Priest 25 種）
 - **Chapter 4 以降**: B2F〜B10F の迷宮データ、ボス（Werdna）、エンディング、識別済み/呪われた装備
 
+### 画面トポロジ（1981 オリジナルマニュアル準拠）
+
+**Castle メニュー** (キーバインド: G/B/T/A/E):
+- (G)ilgamesh's Tavern — パーティ編成
+- (B)oltac's Trading Post — 売買・識別・呪い解除（Chapter 1 は売買のみ）
+- (T)emple of Cant — 状態異常治療・蘇生（Chapter 1 はセーブのみ）
+- (A)dventurer's Inn — 休息・レベルアップ（Chapter 1 は休息のみ）
+- (E)dge of Town — Edge of Town へ移動
+
+**Edge of Town メニュー** (キーバインド: T/M/C/U/L):
+- (T)raining Grounds — キャラクター作成・職業変更・キャラ削除
+- (M)aze — 迷宮へ進入
+- (C)astle — Castle へ戻る
+- (U)tilities — Restart an OUT Party 等（Chapter 1 は Restart のみ実装）
+- (L)eave Game — タイトルへ戻る
+
+**重要**: Training Grounds は Edge of Town 配下であり Castle 配下ではない。
+
 ### Chapter 1 の Definition of Done
 
 ブラウザで以下が一通りプレイ可能:
 
 1. タイトル画面（Apple II 風）
 2. New Game → Edge of Town へ遷移
-3. Castle へ移動 → 各施設が選択可能
-4. Training Grounds でキャラ 6 人作成（種族・職業・属性・名前・能力値振り分け）
-5. Tavern でパーティ編成（最大 6 人）
-6. Inn で休息（HP 全快のみ。レベルアップは Chapter 2）
-7. Boltac's Trading Post で買い物（Chapter 1 装備のみ。所持金・所持品は実際に増減する。装備による戦闘パラメータ計算は Chapter 2 で実装するため、Chapter 1 では「数値表示のみで効果は未反映」とする）
-8. Edge of Town → Maze 1F に進入
+3. Edge of Town → Training Grounds でキャラ 6 人作成（種族・職業・属性・名前・能力値振り分け）
+4. Edge of Town → Castle へ移動 → 各施設が選択可能
+5. Castle → Gilgamesh's Tavern でパーティ編成（最大 6 人）
+6. Castle → Adventurer's Inn で休息（HP 全快の Stables ティアのみ実装。残り 4 ティアは Chapter 2）
+7. Castle → Boltac's Trading Post で買い物（Chapter 1 装備のみ。所持金・所持品は実際に増減する。装備による戦闘パラメータ計算は Chapter 2 で実装するため、Chapter 1 では「数値表示のみで効果は未反映」とする）
+8. Edge of Town → Maze へ進入
 9. 1F の壁・扉・階段に従って歩行（前進・後退・左回転・右回転）
-10. 自動マッピング表示
-11. Castle 帰還
-12. Temple でセーブ → タイトル → Continue で復元
-13. 設定で日本語/英語切替
+10. 1F の壁・扉・階段を Apple II 原典のワイヤーフレーム 3D 視点で描画する（**自動マッピングは実装しない** — 原典通り、プレイヤーが手書きでマッピングする体験を維持）
+11. 迷宮内 Camp（最低限）→ Edge of Town へ Quit（戻る）
+12. Castle → Temple of Cant でセーブ → タイトル → Continue で復元（**独自追加機能**）
+13. 設定で日本語/英語切替（プレイ中の動的切替対応）
 14. ブラウザリロードしても状態が永続化されている
 15. ウィンドウリサイズで整数倍スケールを維持
 
@@ -50,13 +68,28 @@
 
 - 戦闘・モンスター遭遇・攻撃
 - 呪文使用
-- レベルアップ判定
+- レベルアップ判定（Inn での経験値 → レベル変換）
 - 死亡・蘇生
-- Camp の詳細機能
+- Camp の詳細機能（呪文詠唱、装備変更、アイテム使用 — Chapter 2/3 で実装）
 - 罠・宝箱
 - B2F 以降の迷宮
 - BGM/SE
 - 識別フロー、呪われた装備の挙動
+- 自動マッピング（原典踏襲のため永続的に実装しない）
+- Inn の Cot / Economy / Merchant / Royal Suite ティア（Chapter 2 で経験値計算と同時に実装）
+- Boltac の識別・呪い解除（Chapter 4 で実装）
+- Temple の蘇生・状態治療（Chapter 2 で実装）
+- 職業変更（Chapter 2 で実装）
+
+### 独自追加機能の明示一覧
+
+「1981 オリジナル準拠」を貫きつつ、以下の機能のみ独自追加とする:
+
+| 独自追加 | フレーバー解釈 |
+|---|---|
+| Temple of Cant でのセーブ機能 | 神官の年代記に旅路を記す |
+
+これ以外の独自追加は原則行わない。
 
 ---
 
@@ -124,15 +157,17 @@ wizardry_proving_grounds/
 │   │   ├── animation/orchestrator.ts   # 状態遷移→アニメ種別判定
 │   │   └── rng/                        # 乱数 DI（mulberry32 等）
 │   ├── screens/
-│   │   ├── Title/
-│   │   ├── EdgeOfTown/
-│   │   ├── Castle/
-│   │   ├── Training/
-│   │   ├── Tavern/
-│   │   ├── Boltac/
-│   │   ├── Temple/
-│   │   ├── Inn/
-│   │   └── Maze/
+│   │   ├── Title/                      # New Game / Continue / 設定
+│   │   ├── EdgeOfTown/                 # T/M/C/U/L メニュー
+│   │   ├── Training/                   # Edge of Town 配下: キャラ作成
+│   │   ├── Utilities/                  # Edge of Town 配下: Restart OUT Party 他
+│   │   ├── Castle/                     # G/B/T/A/E メニュー
+│   │   ├── Tavern/                     # Castle 配下: パーティ編成
+│   │   ├── Boltac/                     # Castle 配下: 売買
+│   │   ├── Temple/                     # Castle 配下: セーブ（独自）
+│   │   ├── Inn/                        # Castle 配下: 休息
+│   │   ├── Maze/                       # 迷宮 (Canvas 描画含む)
+│   │   └── Camp/                       # 迷宮内 Camp (最低限)
 │   ├── render/
 │   │   ├── canvas/                     # HGR 風 line/rect ラッパ
 │   │   └── maze/                       # 視点→線分配列の変換
@@ -172,45 +207,197 @@ wizardry_proving_grounds/
 
 ゲーム全体を有限ステートマシンで表現する。XState は使わず、自作 reducer + discriminated union を採用。
 
+### 共通型定義
+
+```typescript
+// パーティ・キャラ
+type CharacterId = number;
+type SlotIndex = 0 | 1 | 2 | 3 | 4 | 5;   // パーティの並び順 (前列 0-2、後列 3-5)
+
+interface PartyState {
+  members: (CharacterId | null)[];        // 長さ 6、null は空席
+  gold: number;                           // パーティ共有 Gold (1981 オリジナルではキャラごとだが UX 重視で共有を選択肢に)
+  // 注: Chapter 1 実装時に Pascal を確認し、キャラ別 gold が原典であれば members 内のキャラに保持
+}
+
+// 迷宮位置
+type Direction = 'n' | 'e' | 's' | 'w';
+interface MazePosition {
+  level: number;     // 1〜10 (Chapter 1 では 1 のみ)
+  x: number;         // 0〜19
+  y: number;         // 0〜19
+  dir: Direction;    // プレイヤーの向いている方向
+}
+
+// キャラクター作成草稿 (Training Grounds 内の作業中データ)
+interface CharacterDraft {
+  name: string;
+  race: RaceId;
+  alignment: 'good' | 'neutral' | 'evil';
+  rolledAttributes: Attributes;          // 種族 base + ボーナス振り分け後
+  bonusPointsRemaining: number;          // d10 で振った残り
+  selectedClass: ClassId | null;         // 確定すると null から決定値へ
+}
+
+// 各画面の Sub-state
+type TitleSubState = 'main' | 'continueMenu' | 'settings';
+type TrainingSubState =
+  | { kind: 'menu' }                                              // ロスター一覧
+  | { kind: 'creating'; step: 'name' | 'race' | 'alignment' | 'rollAttributes' | 'allocateBonus' | 'pickClass' | 'confirm'; draft: CharacterDraft }
+  | { kind: 'inspecting'; characterId: CharacterId }
+  | { kind: 'deleting'; characterId: CharacterId };
+type TavernSubState =
+  | { kind: 'menu' }
+  | { kind: 'addMember'; rosterIds: CharacterId[] }
+  | { kind: 'removeMember'; slot: SlotIndex }
+  | { kind: 'inspecting'; slot: SlotIndex };
+type BoltacSubState =
+  | { kind: 'menu' }
+  | { kind: 'pickBuyer'; }
+  | { kind: 'browse'; buyer: SlotIndex; cursor: number }
+  | { kind: 'sell'; buyer: SlotIndex; itemIndex: number };
+type TempleSubState =
+  | { kind: 'menu' }
+  | { kind: 'savePicker'; slots: SaveSlotInfo[]; mode: 'overwrite' | 'newSlot' }     // 独自追加
+  | { kind: 'saveConfirm'; slotId: SaveSlotId | 'new'; name: string }                // 独自追加
+  | { kind: 'saveDone' };                                                            // 独自追加
+type InnSubState =
+  | { kind: 'menu' }
+  | { kind: 'pickGuest' }
+  | { kind: 'pickRoom'; guest: SlotIndex }                                           // Chapter 1 は Stables のみ表示
+  | { kind: 'resting'; guest: SlotIndex; tier: 'stables' };
+type CampSubState =
+  | { kind: 'menu' };                                                                // Chapter 1 は Quit のみ機能
+type UtilitiesSubState =
+  | { kind: 'menu' }
+  | { kind: 'restartParty'; outParties: SaveSlotInfo[] };                            // Chapter 1 は OUT 状態の検出と復帰のみ
+```
+
 ### トップレベル状態
 
 ```typescript
 type GameState =
-  | { phase: 'title' }
+  | { phase: 'title';     sub: TitleSubState }
   | { phase: 'edgeOfTown'; party: PartyState }
-  | { phase: 'castle'; party: PartyState }
-  | { phase: 'training'; sub: TrainingSubState; party: PartyState }
-  | { phase: 'tavern'; sub: TavernSubState; party: PartyState }
-  | { phase: 'boltac'; sub: BoltacSubState; party: PartyState }
-  | { phase: 'temple'; sub: TempleSubState; party: PartyState }
-  | { phase: 'inn'; sub: InnSubState; party: PartyState }
-  | { phase: 'maze'; pos: MazePosition; party: PartyState };
-  // Chapter 2+ : combat, camp, levelUp, dead など
+  | { phase: 'training';  sub: TrainingSubState;  party: PartyState }   // Edge of Town 配下
+  | { phase: 'utilities'; sub: UtilitiesSubState; party: PartyState }   // Edge of Town 配下
+  | { phase: 'castle';    party: PartyState }
+  | { phase: 'tavern';    sub: TavernSubState;    party: PartyState }   // Castle 配下
+  | { phase: 'boltac';    sub: BoltacSubState;    party: PartyState }   // Castle 配下
+  | { phase: 'temple';    sub: TempleSubState;    party: PartyState }   // Castle 配下
+  | { phase: 'inn';       sub: InnSubState;       party: PartyState }   // Castle 配下
+  | { phase: 'maze';      pos: MazePosition;      party: PartyState }
+  | { phase: 'camp';      sub: CampSubState;      pos: MazePosition; party: PartyState };
+  // Chapter 2+ : combat, levelUp, dead, etc.
 ```
 
 ### イベント
 
 ```typescript
 type GameEvent =
+  // Title
   | { type: 'startGame' }
-  | { type: 'enterCastle' }
-  | { type: 'enterTraining' }
-  | { type: 'createCharacter'; data: CharacterDraft }
+  | { type: 'openContinue' }
+  | { type: 'continueGame'; slotId: SaveSlotId }
+  | { type: 'openSettings' }
+  | { type: 'closeSettings' }
+  | { type: 'changeLanguage'; lang: 'en' | 'ja' }
+
+  // Edge of Town
+  | { type: 'goToTraining' }
+  | { type: 'goToMaze' }
+  | { type: 'goToCastle' }
+  | { type: 'goToUtilities' }
+  | { type: 'leaveGame' }
+
+  // Training Grounds
+  | { type: 'startCreate' }
+  | { type: 'inputName'; name: string }
+  | { type: 'pickRace'; race: RaceId }
+  | { type: 'pickAlignment'; alignment: 'good' | 'neutral' | 'evil' }
+  | { type: 'rollAttributes' }                              // 種族 base + ボーナス d10 ロール
+  | { type: 'allocateBonus'; attribute: AttributeKey; delta: -1 | 1 }
+  | { type: 'pickClass'; klass: ClassId }
+  | { type: 'confirmCharacter' }
+  | { type: 'cancelCreate' }
+  | { type: 'inspectCharacter'; characterId: CharacterId }
+  | { type: 'deleteCharacter'; characterId: CharacterId }
+
+  // Castle (G/B/T/A/E)
   | { type: 'enterTavern' }
-  | { type: 'addToParty'; characterId: number }
-  | { type: 'removeFromParty'; slot: number }
   | { type: 'enterBoltac' }
-  | { type: 'buyItem'; itemId: string; characterId: number }
   | { type: 'enterTemple' }
-  | { type: 'saveAtTemple'; slotName: string }    // 独自追加
-  | { type: 'loadFromTemple'; slotId: number }    // 独自追加
   | { type: 'enterInn' }
-  | { type: 'rest'; characterId: number }
-  | { type: 'enterMaze' }
+  | { type: 'leaveCastle' }                                 // → Edge of Town
+
+  // Tavern
+  | { type: 'addToParty'; characterId: CharacterId; slot: SlotIndex }
+  | { type: 'removeFromParty'; slot: SlotIndex }
+  | { type: 'inspectMember'; slot: SlotIndex }
+
+  // Boltac
+  | { type: 'pickBuyer'; slot: SlotIndex }
+  | { type: 'buyItem'; itemId: ItemId }
+  | { type: 'sellItem'; itemIndex: number }
+
+  // Temple (独自セーブ機能)
+  | { type: 'openSaveMenu' }
+  | { type: 'pickSlot'; slot: SaveSlotId | 'new' }
+  | { type: 'inputSlotName'; name: string }
+  | { type: 'confirmSave' }
+  | { type: 'cancelSave' }
+
+  // Inn
+  | { type: 'pickGuest'; slot: SlotIndex }
+  | { type: 'pickRoom'; tier: 'stables' }                   // Chapter 1 は Stables のみ
+  | { type: 'finishRest' }
+
+  // Maze
   | { type: 'moveForward' }
   | { type: 'turnLeft' }
   | { type: 'turnRight' }
-  | { type: 'returnToTown' };
+  | { type: 'moveBackward' }
+  | { type: 'openCamp' }
+  | { type: 'descendStairs' }                               // Chapter 1 は B2F なし → エラーメッセージ
+  | { type: 'ascendStairs' }                                // → Castle 帰還 (1F の上り階段)
+
+  // Camp (Chapter 1 範囲)
+  | { type: 'leaveCamp' }                                   // 迷宮へ戻る
+  | { type: 'quitToTown' };                                 // → Edge of Town (パーティが OUT 状態に)
+```
+
+### 状態遷移図 (Chapter 1 範囲)
+
+```
+title
+  ├── (startGame) ──→ edgeOfTown
+  └── (continueGame) ──→ <復元先 phase>
+
+edgeOfTown
+  ├── (goToTraining) ─→ training
+  ├── (goToMaze)     ─→ maze (パーティが空なら拒否)
+  ├── (goToCastle)   ─→ castle
+  ├── (goToUtilities)─→ utilities
+  └── (leaveGame)    ─→ title
+
+training ──(cancelCreate / 完了)──→ edgeOfTown
+utilities ──(完了 / cancel)──────→ edgeOfTown
+
+castle
+  ├── (enterTavern) ─→ tavern  ──→ castle
+  ├── (enterBoltac) ─→ boltac  ──→ castle
+  ├── (enterTemple) ─→ temple  ──→ castle (セーブ後)
+  ├── (enterInn)    ─→ inn     ──→ castle
+  └── (leaveCastle) ─→ edgeOfTown
+
+maze
+  ├── (move/turn)   ─→ maze
+  ├── (openCamp)    ─→ camp
+  └── (ascendStairs:1F上り) ─→ castle
+
+camp
+  ├── (leaveCamp)   ─→ maze
+  └── (quitToTown)  ─→ edgeOfTown (party は OUT 状態として記録)
 ```
 
 ### Reducer
@@ -285,8 +472,104 @@ CSS transform: scale() で整数倍 (1x / 2x / 3x / 4x)
 
 - 280×192 の `<canvas>` を内部解像度として保持
 - `drawLine` / `drawRect` の極小ラッパのみ実装
-- 視点情報 (`pos: {x, y, dir, level}`) から見える壁・扉・階段を計算 → 線分配列 → Canvas
 - 描画は state 変化時のみ（RAF を常時回さない、演出時のみ起動）
+
+### 迷宮 3D ワイヤーフレーム描画アルゴリズム
+
+Apple II 版 Wizardry の 3D 視点は「**事前計算された遠近線分テーブル**」をルックアップする方式で、3D ジオメトリを毎フレーム計算しているわけではない。本実装も同方式を採用する。
+
+#### 視野定義
+
+```
+プレイヤーの向いている方向に対して:
+- 前方 4 セル分まで描画（depth = 0 ～ 3）
+  - depth 0: プレイヤー自身のセル
+  - depth 1: 1 マス先
+  - depth 2: 2 マス先
+  - depth 3: 3 マス先（最遠）
+- 左右 1 セルずつの「サイドビュー」を描画
+  - rel = -1 (左), 0 (中央), +1 (右)
+- 視野範囲: 4 (depth) × 3 (左/中/右) = 12 セル
+```
+
+#### 線分テーブルの構造
+
+```typescript
+// src/render/maze/wireframeTable.ts
+// 各 (depth, rel) ごとに「壁・扉・階段」を描く線分の固定座標を定義
+
+interface SegmentSet {
+  /** 前面の壁 (このセルの正面が壁の場合に描く) */
+  frontWall: LineSegment[];
+  /** 左面の壁 (このセルの左が壁の場合に描く) */
+  leftWall: LineSegment[];
+  /** 右面の壁 */
+  rightWall: LineSegment[];
+  /** 扉 (壁の代わりに描画) */
+  frontDoor: LineSegment[];
+  leftDoor: LineSegment[];
+  rightDoor: LineSegment[];
+  /** 階段マーカー (上り/下り) */
+  stairsUp: LineSegment[];
+  stairsDown: LineSegment[];
+}
+
+const WIREFRAME_TABLE: Record<Depth, Record<RelPos, SegmentSet>> = {
+  0: { '-1': {...}, '0': {...}, '+1': {...} },
+  1: { '-1': {...}, '0': {...}, '+1': {...} },
+  2: { '-1': {...}, '0': {...}, '+1': {...} },
+  3: { '-1': {...}, '0': {...}, '+1': {...} },
+};
+```
+
+座標値は Pascal の対応定数または tk421 ソースから抽出する。**抽出に失敗した場合のフォールバック**として、Apple II 実機スクリーンショット（Internet Archive で公開されている）から座標を実測する。
+
+#### 描画ルール
+
+1. プレイヤー位置 `pos` と方向 `dir` から、視野 12 セルのワールド座標を計算
+2. 各セル (depth, rel) について、`MAZE_L1` から壁・扉・特殊マスを引く
+3. **遠いセル → 近いセル** の順に描画（隠面消去のため）
+4. 各 (depth, rel) で `WIREFRAME_TABLE[depth][rel]` の対応セグメントを `drawLine` で描画
+5. 階段マーカーは `special` が `stairsUp`/`stairsDown` のときのみ追加
+
+#### 隠面消去（簡易）
+
+Wizardry の原典は「奥のセルから手前へ順に描き、手前の壁が背景を上書きする」という単純な方式。本実装も同じ:
+
+```typescript
+function renderMazeView(pos: MazePosition, ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, 280, 192);
+  ctx.strokeStyle = 'white';
+
+  // 奥から手前へ
+  for (const depth of [3, 2, 1, 0]) {
+    for (const rel of [-1, 0, 1]) {
+      const cell = lookupCell(pos, depth, rel);
+      drawCellSegments(ctx, depth, rel, cell);
+    }
+  }
+}
+```
+
+#### 視野範囲の制限
+
+- 壁にぶつかった先のセルは「視野ブロック」されるべきだが、Apple II 原典では**全セル一律で描画**する単純実装。本実装も忠実にこれを踏襲（壁の向こうがチラ見えする原典の挙動を再現）
+- ただし `darkness` マスに入った場合は描画範囲を depth=0 のみに制限（Chapter 4 で実装）
+
+#### テスト戦略
+
+`renderMazeView` 自体の Canvas 出力比較は煩雑なため、**「視野計算ロジック」と「描画呼び出しシーケンス」を分離**してテストする:
+
+```typescript
+// 視野 12 セルのワールド座標計算 → 純関数 → Vitest で網羅
+function computeViewport(pos: MazePosition): ViewportCell[];
+
+// セグメント決定 → 純関数 → Vitest
+function selectSegments(cell: Cell, depth: Depth, rel: RelPos): LineSegment[];
+```
+
+ピクセル単位の最終 Canvas 比較は手動 E2E に任せる。
 
 ### HTML/CSS 層（メニュー・テキスト・ステータス）
 
@@ -431,6 +714,28 @@ db.saveState(slotId, currentGameState)
 - ブラウザのキャッシュクリアで消える点を README/設定画面で告知
 - 将来「DB エクスポート→ファイル保存」機能の余地を残す
 
+### OPFS 非対応ブラウザの挙動
+
+OPFS は Chrome/Edge 102+, Firefox 111+, Safari 16.4+ で対応。それ以前のブラウザでは以下の段階的フォールバック:
+
+```
+1. アプリ起動時に OPFS API の存在を検出
+   ─→ 非対応の場合、起動を中断せず以下を実行:
+
+2. メモリ内 SQLite (sqlite-wasm を OPFS なしモードで起動) を使用
+   ─→ プレイは可能だが、ブラウザを閉じると全データ消失
+   ─→ タイトル画面とセーブ画面で大きな警告バナーを表示:
+       "お使いのブラウザはセーブに非対応です。データは閉じると消えます。"
+       "This browser does not support saving. Data will be lost on close."
+
+3. localStorage または IndexedDB へのエクスポート機能をボタン提供
+   ─→ "Export save as file (.json)" ボタンで JSON ダウンロード可能に
+   ─→ "Import save from file" でファイル復元可能に
+   ─→ これは Chapter 1 のスコープに含める (Chapter 2 以降にしない)
+```
+
+これにより「セーブ不可で起動不能」を避け、最低限プレイ可能な状態を保つ。フォールバックの動作確認は手動 E2E チェックリストに含める。
+
 ---
 
 ## 7. ゲームデータ
@@ -463,6 +768,75 @@ export const RACES = {
 - `as const` で型推論を強くする
 - 数値は Pascal から 1:1 で書き起こし、推測補完しない
 - 各ファイル先頭に Pascal の対応箇所をコメント
+
+### キャラクター作成アルゴリズム
+
+Wizardry のキャラ作成は仕様が複雑なため、設計書段階で骨格を固定する。Pascal の `MAKECHARACTER` / `BONUS` プロシージャに対応。
+
+#### フロー
+
+```
+1. 名前入力 (最大 8 文字、英数字)
+   ↓
+2. 種族選択 (Human / Elf / Dwarf / Gnome / Hobbit)
+   ↓
+3. 属性選択 (Good / Neutral / Evil)
+   ↓
+4. 能力値ロール:
+   ・各能力値 = 種族 base 値で初期化
+   ・ボーナスポイント = roll d10 (1〜10) + 任意のリロール (確率的に高ロール)
+   ・1981 オリジナルの正確な式は Pascal で要確認 (推測補完しない)
+   ・ボーナスポイントは振り直し可能 (再度 d10)
+   ↓
+5. ボーナスポイント振り分け (任意の能力値に +1/-1)
+   ・能力値の上限は 18 (Pascal 確認)
+   ↓
+6. 職業選択:
+   ・現在の能力値 + 属性で資格のある職業のみ選択肢に表示
+   ・職業条件 (Pascal CLASS_REQUIREMENTS):
+     - Fighter: STR >= 11
+     - Mage: IQ >= 11
+     - Priest: PIE >= 11, alignment != Neutral
+     - Thief: AGI >= 11, alignment != Good
+     - Bishop: IQ >= 12 AND PIE >= 12, alignment != Neutral
+     - Samurai: STR >= 15, IQ >= 11, PIE >= 10, VIT >= 14, AGI >= 10, alignment != Evil
+     - Lord: STR >= 15, IQ >= 12, PIE >= 12, VIT >= 15, AGI >= 14, LUK >= 15, alignment == Good
+     - Ninja: 全能力値 >= 17, alignment == Evil
+   ↓
+7. 確認 → ロスター追加
+```
+
+#### 属性制限まとめ
+
+| 職業 | 善 | 中立 | 悪 |
+|---|---|---|---|
+| Fighter | ✓ | ✓ | ✓ |
+| Mage    | ✓ | ✓ | ✓ |
+| Priest  | ✓ | × | ✓ |
+| Thief   | × | ✓ | ✓ |
+| Bishop  | ✓ | × | ✓ |
+| Samurai | ✓ | ✓ | × |
+| Lord    | ✓ | × | × |
+| Ninja   | × | × | ✓ |
+
+#### 数値の最終確定タイミング
+
+「Pascal で要確認」と書いてある数値（ボーナスロールの確率分布、能力値上限など）は、**M3 の最初のタスクとして CiderPress で Pascal を抽出し、表を埋める**。Plan で具体的なステップとして明記する。
+
+#### テスト
+
+```typescript
+// tests/engine/rules/character-creation.test.ts
+describe('class qualification', () => {
+  it.each([
+    [{ str: 17, iq: 17, pie: 17, vit: 17, agi: 17, luk: 17, alignment: 'evil' }, ['fighter','mage','thief','ninja', /* ... */]],
+    [{ str: 11, iq: 8, pie: 8, vit: 10, agi: 10, luk: 10, alignment: 'good' }, ['fighter']],
+    // ...
+  ])('attrs %o → eligible classes %o', (attrs, expected) => {
+    expect(eligibleClasses(attrs).sort()).toEqual(expected.sort());
+  });
+});
+```
 
 ### 迷宮データ
 
@@ -528,23 +902,40 @@ L1 にはオリジナルで暗闇マス・回転床・テレポートが存在�
 
 ```typescript
 // src/i18n/messages.ts
+// 日本語訳は PC-9801 / FC 版 Wizardry の用語に準拠 (カタカナ表記中心)
 export const MESSAGES = {
   en: {
     'edgeOfTown.title': 'Edge of Town',
     'castle.title': 'Castle',
     'temple.menu.pray': 'Pray to record your journey',
     'race.human': 'Human',
+    'race.elf': 'Elf',
+    'race.dwarf': 'Dwarf',
+    'race.gnome': 'Gnome',
+    'race.hobbit': 'Hobbit',
     'class.fighter': 'Fighter',
+    'class.mage': 'Mage',
+    'class.priest': 'Priest',
+    'class.thief': 'Thief',
   },
   ja: {
-    'edgeOfTown.title': '街のはずれ',
-    'castle.title': '城',
-    'temple.menu.pray': '祈りで旅路を記す',
-    'race.human': '人間',
-    'class.fighter': '戦士',
+    'edgeOfTown.title': 'まちのはずれ',
+    'castle.title': 'おしろ',
+    'temple.menu.pray': 'いのりをささげる',
+    'race.human': 'ヒューマン',
+    'race.elf': 'エルフ',
+    'race.dwarf': 'ドワーフ',
+    'race.gnome': 'ノーム',
+    'race.hobbit': 'ホビット',
+    'class.fighter': 'せんし',
+    'class.mage': 'まほうつかい',
+    'class.priest': 'そうりょ',
+    'class.thief': 'とうぞく',
   },
 } as const;
 ```
+
+種族名はカタカナ（PC 版 Wizardry 準拠）、地名・施設名・職業名はひらがな（PC-9801 版の表記習慣）を採用。FC 版とは一部表記が異なるため、Plan 段階で実際の Wizardry 翻訳テーブルを参考に最終確定する。
 
 ### フック
 
@@ -561,11 +952,19 @@ export function useT() {
 }
 ```
 
-### 切替
+### 切替とホットリロード
 
 - 設定画面/タイトル画面に Language トグル
 - 選択は `settings` テーブルに永続化
 - 初回起動: `navigator.language` 判定（`ja*` なら ja、それ以外 en）
+
+#### プレイ中の動的切替
+
+`useT()` フックは内部で `useGameStore((s) => s.lang)` を購読する Zustand セレクタなので、`changeLanguage` イベントで `lang` フィールドが変わると、フックを使っている **すべての React コンポーネントが自動再描画**される。これにより:
+
+- 設定画面で言語を切り替え → 即座に全画面のテキストが新しい言語に更新
+- 迷宮内で切り替えても OK（メッセージ・ステータス全て即時反映）
+- 例外: Canvas 内に直接描画した文字列は再描画トリガが必要 → state 変化時に再描画する既存の仕組みに乗る
 
 ### ポリシー
 
@@ -630,10 +1029,23 @@ function runAnimation(kind: AnimationKind, onDone: () => void) {
 ```typescript
 describe('castle phase', () => {
   it.each([
-    [{ phase: 'castle', party }, { type: 'enterTraining' }, { phase: 'training', sub: 'menu', party }],
-    [{ phase: 'castle', party }, { type: 'enterTavern' },   { phase: 'tavern',   sub: 'menu', party }],
-    [{ phase: 'castle', party }, { type: 'enterMaze' },     { phase: 'maze',     pos: START_POS, party }],
-  ])('reduce(%o, %o) == %o', (state, event, expected) => {
+    [{ phase: 'castle', party }, { type: 'enterTavern' },  { phase: 'tavern',  sub: { kind: 'menu' }, party }],
+    [{ phase: 'castle', party }, { type: 'enterBoltac' },  { phase: 'boltac',  sub: { kind: 'menu' }, party }],
+    [{ phase: 'castle', party }, { type: 'enterTemple' },  { phase: 'temple',  sub: { kind: 'menu' }, party }],
+    [{ phase: 'castle', party }, { type: 'enterInn' },     { phase: 'inn',     sub: { kind: 'menu' }, party }],
+    [{ phase: 'castle', party }, { type: 'leaveCastle' },  { phase: 'edgeOfTown', party }],
+  ])('castle: reduce(%o, %o) == %o', (state, event, expected) => {
+    expect(reduce(state, event)).toEqual(expected);
+  });
+});
+
+describe('edgeOfTown phase', () => {
+  it.each([
+    [{ phase: 'edgeOfTown', party }, { type: 'goToTraining' }, { phase: 'training',  sub: { kind: 'menu' }, party }],
+    [{ phase: 'edgeOfTown', party }, { type: 'goToMaze' },     { phase: 'maze', pos: START_POS, party }],
+    [{ phase: 'edgeOfTown', party }, { type: 'goToCastle' },   { phase: 'castle', party }],
+    [{ phase: 'edgeOfTown', party }, { type: 'goToUtilities' },{ phase: 'utilities', sub: { kind: 'menu' }, party }],
+  ])('edgeOfTown: reduce(%o, %o) == %o', (state, event, expected) => {
     expect(reduce(state, event)).toEqual(expected);
   });
 });
@@ -656,19 +1068,54 @@ expect(rollBonus(rng)).toBe(7);
 - **`screens/` の React 層は TDD 不要**（手動検証で十分）
 - Pascal を仕様書とする以上、テストは「Pascal の挙動と一致するか」を検証する手段になる
 
+### Pascal 一致の検証方法
+
+「Pascal の挙動と一致するか」を具体化するため、以下の三段階アプローチを取る:
+
+#### 段階 1: Pascal ソースの**手動翻訳**による期待値抽出
+
+CiderPress で抽出した Pascal ファイル（例: `MAKECHARACTER.TEXT`）を読み、ロジックを TypeScript の純関数に**手で翻訳**する。翻訳の妥当性は人間がレビューする（Plan 段階でレビュー手順を明記）。
+
+#### 段階 2: テストフィクスチャの **Pascal 直接対応**
+
+各テスト fixture には Pascal の対応箇所を明示する:
+
+```typescript
+// tests/engine/rules/character-creation.test.ts
+// Reference: docs/reference/wiz1/Pascal/MAKECHARACTER.TEXT lines 45-67
+describe('eligibleClasses (per Pascal MAKECHARACTER lines 45-67)', () => {
+  // ...
+});
+```
+
+#### 段階 3: **Apple II エミュレータでのスポットチェック** (任意)
+
+迷宮データ・キャラ作成・呪文効果など「数値の妥当性が外見的に分からない」ものは、AppleWin 等で実機動作を確認し、本実装の出力と比較する。これは「不一致が疑われた時のみ」のスポット作業で、自動化はしない。
+
+#### 自動化テストの限界明記
+
+Apple II 実機との完全自動比較（output diff）は本プロジェクトのスコープ外。`docs/chapters/<n>/pascal-conformity.md` に「Pascal のどの関数を翻訳元とし、どのテストで検証したか」のマッピングを章ごとに残す。
+
 ### 手動 E2E チェックリスト (Chapter 1)
 
 ```
 □ タイトル → New Game → Edge of Town へ遷移
-□ Edge of Town → Castle → Training Grounds でキャラ作成
-□ パーティ編成 → 6 人組成
-□ Castle → Maze 入口 → 1F 進入
-□ 北・東・南・西へ移動、壁ブロック
-□ ドア通過、階段表示
-□ Castle 帰還、Temple でセーブ
-□ ブラウザリロード → タイトル → Continue → 状態復元
-□ 言語切替（EN ⇄ JA）
+□ Edge of Town → Training Grounds でキャラ 6 人作成
+□ Edge of Town → Castle へ移動
+□ Castle → Tavern でパーティ編成（6 人）
+□ Castle → Inn で Stables 休息（HP 全快を確認）
+□ Castle → Boltac で買い物（所持金が減り inventory に追加）
+□ Castle → Edge of Town へ戻る
+□ Edge of Town → Maze 進入
+□ 北・東・南・西へ移動、壁ブロック挙動の確認
+□ ドア通過、階段マーカー表示の確認
+□ 1F 上り階段で Castle 帰還
+□ Castle → Temple でセーブ → タイトル → Continue で状態復元
+□ ブラウザリロード → タイトル → Continue → 状態復元（OPFS 永続化確認）
+□ プレイ中の言語切替（EN ⇄ JA / 即時反映）
 □ ウィンドウサイズ変更で整数倍スケール維持
+□ OPFS 非対応ブラウザ (Safari 16.3 等の旧版) でフォールバック動作確認
+□ JSON エクスポート/インポート (フォールバック機能) の動作確認
 ```
 
 ### CI
@@ -682,17 +1129,35 @@ expect(rollBonus(rng)).toBe(7);
 
 ## 11. Chapter 1 マイルストーン
 
-| マイルストーン | 内容 | 目安 |
-|---|---|---|
-| M1 | プロジェクト基盤 + Apple II UI 基盤 + Title 画面 + 初回 Vercel デプロイ | 2-3 日 |
-| M2 | Castle ハブ + 全施設のガラ画面（メニューだけ機能） | 3-4 日 |
-| M3 | キャラ作成完成 + パーティ編成 + Boltac 売買 (所持金・所持品の増減) | 4-5 日 |
-| M4 | 迷宮データ + Canvas 描画 + 歩行 | 5-7 日 |
-| M5 | SQLite + OPFS セーブ・ロード（寺院セーブ含む） | 2-3 日 |
-| M6 | i18n 仕上げ（EN/JA 切替）+ 設定画面 | 1-2 日 |
-| M7 | 統合テスト・バグ修正・デプロイ・README | 1-2 日 |
+| マイルストーン | 内容 | P50 | P80 |
+|---|---|---|---|
+| M1 | プロジェクト基盤 + Apple II UI 基盤 (フォント・スケール・罫線) + Title 画面 + 初回 Vercel デプロイ | 3 日 | 5 日 |
+| M2 | Edge of Town メニュー + Castle ハブ + 全施設のメニュー画面 (機能未実装、メニュー遷移のみ) | 3 日 | 5 日 |
+| M3 | Pascal CiderPress 抽出作業 + キャラ作成完成 + Tavern パーティ編成 + Boltac 売買 + Inn (Stables) + Utilities | 6 日 | 9 日 |
+| M4 | 迷宮データ抽出 (Pascal or tk421) + Wireframe テーブル構築 + Canvas 描画 + 歩行 + 1F 階段で Castle 帰還 | 6 日 | 10 日 |
+| M5 | SQLite + OPFS セーブ・ロード (寺院セーブ) + JSON エクスポート/インポート (フォールバック) | 3 日 | 5 日 |
+| M6 | i18n 仕上げ (EN/JA 切替・ホットリロード) + 設定画面 | 2 日 | 3 日 |
+| M7 | 統合テスト + バグ修正 + デプロイ + README + CHANGELOG | 2 日 | 3 日 |
 
-合計: 18〜26 営業日 (4〜5 週間 / フルタイム近い投入で 3〜4 週間)。
+**P50 合計**: 25 営業日 (5 週間)
+**P80 合計**: 40 営業日 (8 週間)
+
+P50 = 中央値 (50% の確率で完了する見積)、P80 = 楽観的でないバッファ込み (80% の確率で完了する見積)。
+
+研究的タスク (Pascal 抽出・MAZEDATA リバースエンジニアリング・Wireframe 座標抽出) を含む M3/M4 は不確実性が高く、P50 と P80 の差が大きい。
+
+### バンドルサイズ予算
+
+クライアント完結 SPA としての配信サイズを以下に制限:
+
+| 項目 | 目標 (gzip) | 上限 (gzip) |
+|---|---|---|
+| 初期ロード JS + CSS | 800 KB | 1.2 MB |
+| WASM SQLite | 600 KB | 700 KB (官製ビルドそのまま) |
+| フォント (Print Char 21 + 美咲フォント) | 80 KB | 120 KB |
+| 全体ペイロード (gzip 後) | 1.5 MB | 2.0 MB |
+
+CI で `vite build` 後にバンドルサイズを計測し、上限超過は警告 → 翌週内に対処する。Lighthouse スコア 90+ を目標とする。
 
 ---
 
@@ -700,12 +1165,15 @@ expect(rollBonus(rng)).toBe(7);
 
 | リスク | 影響 | 対策 |
 |---|---|---|
-| Pascal MAZEDATA のフォーマット解読困難 | M4 遅延 | tk421 地図を二次ソースに切替（人手書き起こし） |
-| OPFS 非対応ブラウザ | セーブ機能不可 | 起動時検出 → エラーメッセージ + 「対応ブラウザの案内」 |
-| WASM SQLite のロード遅延 | 初回起動 UX 悪化 | スプラッシュ画面でロード進捗表示 |
-| Apple II 風フォントのライセンス | リリース不可 | 起用前に Print Char 21 / 美咲フォントのライセンス再確認 |
-| 1981 オリジナル仕様の数値が不確定 | 再現精度低下 | Pascal を最優先、tk421 / Wizardry Wiki を補助、明記 |
-| Chapter 1 が長期化 | モチベ低下 | M1 完了時点で Vercel に上げて毎週進捗を可視化 |
+| Pascal MAZEDATA のフォーマット解読困難 | M4 遅延 | tk421 地図を二次ソースに切替（人手書き起こし、半日程度のバッファあり） |
+| Pascal Wireframe 座標の抽出困難 | 迷宮 3D 描画品質低下 | Internet Archive の Apple II 実機スクリーンショットから実測する代替手段あり |
+| OPFS 非対応ブラウザ | セーブ機能不可 | メモリ内 SQLite + JSON エクスポート/インポートにフォールバック (Chapter 1 範囲で実装) |
+| WASM SQLite のロード遅延 | 初回起動 UX 悪化 | スプラッシュ画面でロード進捗表示、サイズ予算 700KB に制限 |
+| Apple II 風フォントのライセンス | リリース不可 | M1 着手前に Print Char 21 / 美咲フォントのライセンス再確認、商用利用可フォントへの切替経路を準備 |
+| 1981 オリジナル仕様の数値が不確定 | 再現精度低下 | Pascal を最優先、tk421 / Wizardry Wiki を補助、不明点は `docs/chapters/1/open-questions.md` に記録 |
+| Chapter 1 が長期化 | モチベ低下 | M1 完了時点で Vercel に上げて毎週進捗を可視化、P80 を超えそうなら M3/M4 のスコープを再交渉 |
+| バンドル上限超過 | Lighthouse スコア低下、初回起動遅延 | M5 完了時点で計測、上限超過なら code-splitting (sqlite-wasm の遅延ロード等) を検討 |
+| WASM SQLite OPFS が iOS Safari で不安定 | iOS ユーザーのセーブ機能影響 | iOS Safari 16.4+ でしか動作しない仕様。15 系以前は前述のフォールバックで吸収 |
 
 ---
 
