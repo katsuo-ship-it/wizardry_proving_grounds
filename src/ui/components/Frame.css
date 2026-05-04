@@ -1,0 +1,16 @@
+.apple2-frame {
+  border: var(--vp) solid var(--color-fg);
+  padding: calc(2 * var(--vp));
+  background: var(--color-bg);
+}
+
+.apple2-frame-title {
+  font-size: var(--font-size-glyph);
+  margin-bottom: calc(1 * var(--vp));
+  text-align: center;
+  letter-spacing: var(--vp);
+}
+
+.apple2-frame-body {
+  font-size: var(--font-size-glyph);
+}

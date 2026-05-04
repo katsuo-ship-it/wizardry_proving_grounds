@@ -1,0 +1,67 @@
+@font-face {
+  font-family: 'Print Char 21';
+  src: url('/fonts/PrintChar21.ttf') format('truetype');
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Misaki Gothic';
+  src: url('/fonts/MisakiGothic.ttf') format('truetype');
+  font-display: block;
+}
+
+:root {
+  --scale: 3;
+  --vp: calc(1px * var(--scale));
+  --viewport-width: calc(280 * var(--vp));
+  --viewport-height: calc(192 * var(--vp));
+  --font-size-glyph: calc(8 * var(--vp));
+  --color-bg: #000000;
+  --color-fg: #ffffff;
+  --color-accent: #00ff00;
+  --color-warn: #ff8000;
+  font-family: 'Print Char 21', 'Misaki Gothic', monospace;
+  font-size: var(--font-size-glyph);
+  line-height: var(--font-size-glyph);
+  color: var(--color-fg);
+  background: var(--color-bg);
+}
+
+[lang='ja'] {
+  font-family: 'Misaki Gothic', 'Print Char 21', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#root {
+  width: var(--viewport-width);
+  height: var(--viewport-height);
+  position: relative;
+  margin: auto;
+  display: block;
+}
+
+img,
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
