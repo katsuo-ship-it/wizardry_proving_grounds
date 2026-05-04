@@ -53,7 +53,7 @@
 3. Edge of Town → Training Grounds でキャラ 6 人作成（種族・職業・属性・名前・能力値振り分け）
 4. Edge of Town → Castle へ移動 → 各施設が選択可能
 5. Castle → Gilgamesh's Tavern でパーティ編成（最大 6 人）
-6. Castle → Adventurer's Inn で休息（HP 全快の Stables ティアのみ実装。残り 4 ティアは Chapter 2）
+6. Castle → Adventurer's Inn で Stables 休息（**時間経過のみ・HP 回復なし** が 1981 原典挙動。Cot 以降の有料ティアは Chapter 2）
 7. Castle → Boltac's Trading Post で買い物（Chapter 1 装備のみ。所持金・所持品は実際に増減する。装備による戦闘パラメータ計算は Chapter 2 で実装するため、Chapter 1 では「数値表示のみで効果は未反映」とする）
 8. Edge of Town → Maze へ進入
 9. 1F の壁・扉・階段に従って歩行（前進・後退・左回転・右回転）
@@ -78,6 +78,7 @@
 - 識別フロー、呪われた装備の挙動
 - 自動マッピング（原典踏襲のため永続的に実装しない）
 - Inn の Cot / Economy / Merchant / Royal Suite ティア（Chapter 2 で経験値計算と同時に実装）
+- Inn 休息による HP 回復（Stables は 1981 原典通り「時間経過のみ」のため）
 - Boltac の識別・呪い解除（Chapter 4 で実装）
 - Temple の蘇生・状態治療（Chapter 2 で実装）
 - 職業変更（Chapter 2 で実装）
@@ -86,11 +87,15 @@
 
 「1981 オリジナル準拠」を貫きつつ、以下の機能のみ独自追加とする:
 
-| 独自追加 | フレーバー解釈 |
+| 独自追加 | 動機 / フレーバー解釈 |
 |---|---|
-| Temple of Cant でのセーブ機能 | 神官の年代記に旅路を記す |
+| Temple of Cant でのセーブ機能 | 神官の年代記に旅路を記す（明示の独自要件） |
+| パーティ共有 Gold（キャラ別ではない） | UX 簡略化（1981 原典はキャラ別）。Boltac の「誰が払うか」フリクションを排除 |
+| 入力キュー (1 操作先行入力) | モダン Web ブラウザの操作感に合わせた QoL（原典は同期実行のみ） |
+| i18n 動的切替（英語/日本語） | 多言語対応（原典は英語のみ） |
+| ピクセル整数倍スケーリング | モダンディスプレイでの可読性確保（原典は固定 280x192） |
 
-これ以外の独自追加は原則行わない。
+「Apple II の挙動・見た目を忠実に再現する」コア体験は維持しつつ、「Web 環境の必然」と「単独プレイの QoL」のみ独自追加とする。**戦闘・呪文・モンスター・経験値・死亡などゲームメカニクスは原典厳守。**
 
 ---
 
@@ -218,8 +223,9 @@ type SlotIndex = 0 | 1 | 2 | 3 | 4 | 5;   // パーティの並び順 (前列 0-
 
 interface PartyState {
   members: (CharacterId | null)[];        // 長さ 6、null は空席
-  gold: number;                           // パーティ共有 Gold (1981 オリジナルではキャラごとだが UX 重視で共有を選択肢に)
-  // 注: Chapter 1 実装時に Pascal を確認し、キャラ別 gold が原典であれば members 内のキャラに保持
+  gold: number;                           // パーティ共有 Gold (独自追加 - 「独自追加機能の明示一覧」参照)
+  status: 'inTown' | 'inMaze' | 'out';    // OUT 状態管理 (詳細は「OUT 状態の表現」節)
+  outAtPosition?: MazePosition;           // OUT 時の迷宮内最終位置 (Restart Out Party で復帰先)
 }
 
 // 迷宮位置
@@ -624,11 +630,116 @@ Reducer は純粋なまま、副作用の指示は state の `kind: 'saving'` �
 - **runEffect**: db をモックして saveState 成功/失敗の両ケースをテスト
 - **Store integration**: Vitest jsdom + 偽 IDB (fake-indexeddb) で end-to-end フロー検証
 
+### GameStore のトップレベル構造
+
+`GameState` (= phase + sub) はゲーム進行用、それ以外のセッション設定は GameStore 直下に保持する:
+
+```typescript
+interface GameStore {
+  // ゲーム進行 (永続化対象)
+  state: GameState;
+
+  // セッション設定 (永続化対象、settings objectStore)
+  lang: 'en' | 'ja';
+  scaleMode: 'auto' | 1 | 2 | 3 | 4;          // 'auto' は computeScale() に委譲
+
+  // 一時状態 (永続化非対象)
+  isAnimating: boolean;
+  isBusy: boolean;
+  inputQueue: GameEvent[];
+
+  dispatch: (event: GameEvent) => void;
+}
+```
+
+`changeLanguage` イベントは Reducer ではなく **store 直下の `lang` フィールドだけを更新** する (Reducer 関心事ではない)。
+
+```typescript
+// store/gameStore.ts (一部)
+dispatch: (event) => {
+  // 設定系イベントは Reducer を経由しない
+  if (event.type === 'changeLanguage') {
+    set({ lang: event.lang });
+    db.setSetting('lang', event.lang);
+    return;
+  }
+  // ... 通常のフロー
+}
+```
+
+### OUT 状態の表現
+
+迷宮内 Camp で `quitToTown` を選んだ場合、パーティは **「OUT 状態」** として記録される。1981 原典では「ディスクに OUT として書き込まれ、Castle 経由では再開できない」という挙動。
+
+#### 格納場所
+
+- `PartyState.status === 'out'` がフラグ
+- `PartyState.outAtPosition` が迷宮内最終位置
+- これらは `saveSlot.gameState` JSON にシリアライズされる（character は無関係）
+
+#### 挙動
+
+- パーティが OUT 状態のとき:
+  - Edge of Town からの (M)aze 選択 → **拒否**（"Your party is OUT, restart from Utilities"）
+  - Castle からの (E)dge of Town → 通常通り遷移
+  - Edge of Town → (U)tilities → "Restart an OUT Party" → 該当パーティを `inMaze` に戻し、`outAtPosition` から復帰
+
+#### 寺院セーブとの相互作用
+
+寺院セーブは `inTown` 状態のときだけ可能（迷宮内では Temple に行けないので自然）。OUT 状態のセーブデータをロードしたら、即 Utilities へ誘導するモーダルを表示。
+
+### エラー UI のデザイン方針
+
+`saveError` / `loadError` 等の失敗ステートを表示する UI は **Apple II 風のメッセージ枠（モーダルではなくインライン）** を使用:
+
+```
+┌──────────────────────────────────┐
+│ THE CHRONICLER ERRS                  │
+│                                       │
+│ Quota exceeded. Free space and try    │
+│ again.                                │
+│                                       │
+│ [Press ENTER to dismiss]              │
+└──────────────────────────────────┘
+```
+
+- DOM レイヤで現在画面の中央にオーバーレイ
+- 既存メニューと同じ罫線・フォント・配色を使用（モダンな赤いダイアログにしない）
+- Enter または Escape で `dismissSaveResult` / `dismissLoadResult` イベントが dispatch されて元の SubState (menu 等) に戻る
+- a11y: `role="alertdialog"` + `aria-live="assertive"` で読み上げ対応
+
+### Leave Game の挙動
+
+Edge of Town の (L)eave Game は **タイトル画面に戻るだけで、自動セーブは行わない**。1981 原典は autosave するが、本実装は Temple セーブのみという独自方針なので、ユーザーに確認ダイアログを出す:
+
+```
+┌──────────────────────────────────┐
+│ LEAVE GAME?                          │
+│                                       │
+│ Unsaved progress will be lost unless  │
+│ saved at the Temple.                  │
+│                                       │
+│ [Y] Yes, leave    [N] No, stay        │
+└──────────────────────────────────┘
+```
+
+Yes → タイトルへ。No → Edge of Town に留まる。
+
+実装は新たな SubState を追加せず、`edgeOfTown` 内に確認モード:
+
+```typescript
+// edgeOfTown phase に optional な confirmLeave フラグを追加してもよいが、シンプルに
+// SubState 化する案も検討余地。Plan で確定。
+```
+
+Plan 段階で「edgeOfTown を SubState 化する」か「単純にコンポーネント側 state で確認モーダル管理」かを決定する。
+
 ### セーブとの関係
 
 - **セーブ** = `state` を JSON シリアライズして IndexedDB の `saveSlot` objectStore に保存（character は `character` objectStore へ別途）
 - **ロード** = JSON から `state` を復元 + `character` objectStore からキャラ実体を引いて合成、`useGameStore` に投入
-- **オートセーブなし**（1981 仕様尊重 / 寺院セーブのみ）
+- **オートセーブなし**（1981 仕様の autosave は意図的に削除し、Temple セーブのみとする独自方針）
+- **Leave Game でも保存しない**: 直前に Temple セーブしていない作業は失われる旨を確認ダイアログで明示
 
 ---
 
@@ -1569,16 +1680,23 @@ Apple II 実機との完全自動比較（output diff）は本プロジェクト
 
 | マイルストーン | 内容 | P50 | P80 |
 |---|---|---|---|
-| M1 | プロジェクト基盤 + Apple II UI 基盤 (フォント・スケール・罫線) + Title 画面 + 初回 Vercel デプロイ | 3 日 | 5 日 |
-| M2 | Edge of Town メニュー + Castle ハブ + 全施設のメニュー画面 (機能未実装、メニュー遷移のみ) | 3 日 | 5 日 |
-| M3 | Pascal CiderPress 抽出作業 + キャラ作成完成 + Tavern パーティ編成 + Boltac 売買 + Inn (Stables) + Utilities | 6 日 | 9 日 |
-| M4 | 迷宮データ抽出 (Pascal or tk421) + Wireframe テーブル構築 + Canvas 描画 + 歩行 + 1F 階段で Castle 帰還 | 6 日 | 10 日 |
-| M5 | IndexedDB セーブ・ロード (寺院セーブ) + JSON エクスポート/インポート (フォールバック) + 入力キュー実装 | 2 日 | 4 日 |
-| M6 | i18n 仕上げ (EN/JA 切替・ホットリロード) + 設定画面 | 2 日 | 3 日 |
+| M0 | **Pascal CiderPress 抽出 + 解析** (races, classes, items, MAZEDATA, MAKECHARACTER 等の仕様読解) → `docs/reference/wiz1/` に整理、`docs/chapters/1/open-questions.md` 起票 | 3 日 | 6 日 |
+| M1 | プロジェクト基盤 + **入力キュー含む Zustand 基盤** + 副作用 Orchestration + Apple II UI 基盤 (フォント・スケール・罫線) + Title 画面 + 初回 Vercel デプロイ | 4 日 | 6 日 |
+| M2 | Edge of Town メニュー + Castle ハブ + 全施設のメニュー画面 (機能未実装、メニュー遷移のみ) + Leave Game 確認ダイアログ | 3 日 | 5 日 |
+| M3 | キャラ作成完成 (M0 の解析結果を反映) + Tavern パーティ編成 + Boltac 売買 + Inn Stables (時間経過のみ) + Utilities | 5 日 | 8 日 |
+| M4 | 迷宮データ抽出 (M0 の Pascal データ or tk421 フォールバック) + Wireframe テーブル構築 + Canvas 描画 + 歩行 + 1F 上り階段で Edge of Town へ | 6 日 | 10 日 |
+| M5 | IndexedDB セーブ・ロード (寺院セーブ) + Camp の OUT 状態管理 + JSON エクスポート/インポート (フォールバック) + Restart Out Party | 2 日 | 4 日 |
+| M6 | i18n 仕上げ (EN/JA 切替・ホットリロード) + 設定画面 + エラー UI (saveError/loadError) | 2 日 | 3 日 |
 | M7 | 統合テスト + バグ修正 + デプロイ + README + CHANGELOG | 2 日 | 3 日 |
 
-**P50 合計**: 24 営業日 (約 5 週間)
-**P80 合計**: 39 営業日 (約 8 週間)
+**P50 合計**: 27 営業日 (約 5.5 週間)
+**P80 合計**: 45 営業日 (約 9 週間)
+
+**変更点**:
+- **M0 (Pascal 抽出) を独立タスク化**: 当初 M3 に同居していたが、M3/M4 双方が依存するため前倒し。研究的タスクは早く着手して不確実性を解消する
+- **入力キューを M1 へ移動**: 当初 M5 だったが、M2-M4 のすべての入力ハンドラに影響するため基盤として最初に実装
+- **OUT 状態管理を M5 に明示**: PartyState の status / outAtPosition フィールド、Restart Out Party の実装を含む
+- **エラー UI を M6 に明示**: saveError / loadError の Apple II 風メッセージ枠
 
 P50 = 中央値 (50% の確率で完了する見積)、P80 = 楽観的でないバッファ込み (80% の確率で完了する見積)。
 
