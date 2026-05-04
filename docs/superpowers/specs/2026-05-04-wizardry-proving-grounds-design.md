@@ -104,7 +104,7 @@
 | 言語 | TypeScript 5+ (strict) | 型安全最優先 |
 | UI | React 18+ | 画面コンポーネント |
 | 状態管理 | Zustand | 自作 reducer の薄いラッパー |
-| 永続化 | `@sqlite.org/sqlite-wasm` (OPFS VFS) | クライアント完結 |
+| 永続化 | IndexedDB (via `idb` ラッパライブラリ) | クライアント完結・全モダンブラウザ対応 |
 | 描画 (迷宮) | HTML5 Canvas 2D | HGR 風ワイヤーフレーム |
 | 描画 (UI) | HTML + CSS | Apple II 風フォント・配色 |
 | Lint/Format | Biome | ESLint + Prettier 代替 |
@@ -120,6 +120,7 @@
 - **Redux / XState**: 自作 reducer + discriminated union で軽量に
 - **Tailwind**: Apple II 風の特殊な見た目には素の CSS の方が制御しやすい
 - **認証 / クラウド DB**: Chapter 1 の段階では不要、将来も導入予定なし
+- **SQLite WASM (sqlite-wasm + OPFS)**: セーブデータ規模 (数 KB〜数十 KB) に対しオーバースペック。WASM ロードに 600KB かかり Lighthouse スコアを毀損。OPFS 非対応環境のフォールバックも複雑化するため不採用
 
 ---
 
@@ -174,9 +175,9 @@ wizardry_proving_grounds/
 │   │   └── maze/                       # 視点→線分配列の変換
 │   ├── store/gameStore.ts              # Zustand ストア
 │   ├── persist/
-│   │   ├── db.ts                       # SQLite 接続・API
-│   │   └── migrations/
-│   │       └── 001_initial.sql
+│   │   ├── db.ts                       # IndexedDB 接続・API (idb ラッパ)
+│   │   ├── schema.ts                   # objectStore 定義・バージョン管理
+│   │   └── exporter.ts                 # JSON エクスポート/インポート
 │   ├── i18n/
 │   │   ├── messages.ts                 # MESSAGES.{en, ja}
 │   │   └── useT.ts                     # フック
@@ -184,7 +185,7 @@ wizardry_proving_grounds/
 │   └── audio/                          # （Chapter 2 以降）
 ├── tests/
 │   ├── engine/                         # reducer/rules の単体テスト
-│   └── persist/                        # SQLite 永続化テスト
+│   └── persist/                        # IndexedDB 永続化テスト
 ├── biome.json
 ├── vite.config.ts
 ├── vitest.config.ts
@@ -200,7 +201,7 @@ wizardry_proving_grounds/
 - **`screens/`** は engine の state を表示するだけの dumb component
 - **`store/`** が両者を繋ぐ薄いレイヤ
 - **`render/`** は Canvas 描画ユーティリティのみ
-- **`persist/`** は SQLite 操作の境界。engine から直接呼ばず、store 経由
+- **`persist/`** は IndexedDB 操作の境界。engine から直接呼ばず、store 経由
 
 ---
 
@@ -416,19 +417,52 @@ function reduce(state: GameState, event: GameEvent): GameState {
 
 各 phase の reducer は純粋関数。Vitest でテーブルテスト可能。
 
-### Zustand 連携
+### Zustand 連携 (入力キュー対応)
 
 ```typescript
+const MAX_QUEUED_INPUTS = 1;     // 先行入力の許容数 (1 = 「次の 1 操作を予約」可能)
+const QUEUE_TIMEOUT_MS = 5000;   // 5 秒経っても演出が終わらないなら強制クリア
+
 const useGameStore = create<GameStore>((set, get) => ({
-  state: { phase: 'title' },
+  state: { phase: 'title', sub: 'main' },
   isAnimating: false,
+  inputQueue: [] as GameEvent[],
+
   dispatch: (event) => {
-    if (get().isAnimating) return;
+    if (get().isAnimating) {
+      // 演出中: キューに追加 (上限まで)
+      const queue = get().inputQueue;
+      if (queue.length < MAX_QUEUED_INPUTS) {
+        set({ inputQueue: [...queue, event] });
+      }
+      // それ以上は無視 (連打抑制)
+      return;
+    }
+
+    // 通常時: 即座に処理
     const next = reduce(get().state, event);
     const anim = bindAnimation(get().state, next);
+
     if (anim) {
       set({ isAnimating: true });
-      runAnimation(anim, () => set({ state: next, isAnimating: false }));
+      const safetyTimer = setTimeout(() => {
+        // 演出が異常に長い場合の安全装置
+        set({ isAnimating: false, inputQueue: [] });
+      }, QUEUE_TIMEOUT_MS);
+
+      runAnimation(anim, () => {
+        clearTimeout(safetyTimer);
+        set({ state: next, isAnimating: false });
+
+        // キューに溜まっていた次の入力を 1 つ取り出して再 dispatch
+        const queued = get().inputQueue;
+        if (queued.length > 0) {
+          const [head, ...rest] = queued;
+          set({ inputQueue: rest });
+          // 次のフレームで処理 (再帰呼出による型不整合の回避)
+          queueMicrotask(() => get().dispatch(head));
+        }
+      });
     } else {
       set({ state: next });
     }
@@ -436,10 +470,17 @@ const useGameStore = create<GameStore>((set, get) => ({
 }));
 ```
 
+**設計ポイント**:
+
+- `MAX_QUEUED_INPUTS = 1`: 「現在の演出 + 次の 1 操作」までキューイング。複数溜め込むと長押し連打で意図しない遠方移動が発生するため抑制
+- `QUEUE_TIMEOUT_MS = 5000`: 演出が完了しないバグが起きても 5 秒で復帰。本番では発生しない想定
+- `queueMicrotask`: 演出完了コールバック内で直接 dispatch すると、まれに React の更新タイミングと衝突するため microtask に逃がす
+- キーリピートとの相性: ブラウザの keydown リピートは `event.repeat === true` で検出可能。Plan で **キーリピート時はキューに積まない** というポリシーを実装する
+
 ### セーブとの関係
 
-- **セーブ** = `state` を JSON シリアライズして SQLite に保存
-- **ロード** = JSON から `state` を復元して `useGameStore` に投入
+- **セーブ** = `state` を JSON シリアライズして IndexedDB の `saveSlot` objectStore に保存（character は `character` objectStore へ別途）
+- **ロード** = JSON から `state` を復元 + `character` objectStore からキャラ実体を引いて合成、`useGameStore` に投入
 - **オートセーブなし**（1981 仕様尊重 / 寺院セーブのみ）
 
 ---
@@ -598,86 +639,146 @@ function selectSegments(cell: Cell, depth: Depth, rel: RelPos): LineSegment[];
 | ドア開閉 | 250ms | Canvas で扉の線分を段階移動 |
 | メッセージ開閉 | 100ms | CSS `transform: scaleY()` |
 
-### 演出と入力の関係
+### 演出と入力の関係 (先行入力対応)
 
-演出中は入力を受け付けない（連打による暴走防止）。`isAnimating` フラグで dispatch をブロック。
+演出中の入力ハンドリングは **キューイング方式**。即座に捨てるのではなく次の 1 操作までを予約として保持し、演出完了後に処理する。
+
+```
+ユーザー入力
+  ↓
+isAnimating === true ?
+  ├─ Yes → inputQueue.length < 1 ? → push / discard
+  └─ No  → 通常 dispatch (state 遷移 → 演出開始)
+              ↓ 演出完了
+              キューに残りがあれば dequeue して再 dispatch
+```
+
+**得られる UX**:
+- 「前進 → 前進 → 前進」と素早く 3 回押した場合、1 歩目の演出中に 2 歩目を予約、2 歩目開始時に 3 歩目は捨てる (= 連打を 1 段先読みのみ許す)
+- 「右回転 → 前進」のように違う操作を続けて押した場合、回転完了後に前進が連続実行される (探索の快適性が大幅向上)
+
+**キーリピート対策**:
+- ブラウザの auto-repeat (キー長押し) は `event.repeat === true` で検出
+- リピートイベントはキューに積まない (= 押しっぱなしでは 1 操作のみ)
+- 明示的に押し直した場合のみキューに入る (= プレイヤーの意図を尊重)
+
+**実装**: 詳細は Section 4「Zustand 連携 (入力キュー対応)」のコード例を参照。
 
 ---
 
-## 6. データ層 (SQLite + OPFS)
+## 6. データ層 (IndexedDB)
 
 ### ライブラリ
 
-- `@sqlite.org/sqlite-wasm` (公式 WASM ビルド、OPFS VFS 同梱)
-- バンドル: ~1.2 MB / gzip 後 ~600 KB（初回ロードのみ）
+- **`idb`** ([jakearchibald/idb](https://github.com/jakearchibald/idb)): IndexedDB の Promise ベース薄いラッパ
+- バンドル: ~6 KB / gzip 後 ~2.5 KB（誤差レベル）
+- IndexedDB 自体はブラウザ標準 API なので追加ペイロードなし
+- 採用理由: SQLite WASM (~600KB gzip) はセーブデータ規模 (数十 KB) に対しオーバースペック。IndexedDB は Chrome 24+, Edge 12+, Firefox 16+, Safari 10+ という超広範な対応で、本プロジェクトの全ターゲット環境を網羅する
 
 ### スキーマ (Chapter 1)
 
-```sql
-CREATE TABLE save_slot (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  name         TEXT NOT NULL,
-  created_at   INTEGER NOT NULL,
-  updated_at   INTEGER NOT NULL,
-  game_state   TEXT NOT NULL          -- GameState の JSON
-);
+IndexedDB の **objectStore** で表現する。`idb` の型推論を活かすため `DBSchema` で型定義:
 
-CREATE TABLE character (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  slot_id      INTEGER NOT NULL REFERENCES save_slot(id) ON DELETE CASCADE,
-  name         TEXT NOT NULL,
-  race         TEXT NOT NULL,
-  class        TEXT NOT NULL,
-  alignment    TEXT NOT NULL,
-  attributes   TEXT NOT NULL,         -- {str, iq, pie, vit, agi, luk}
-  status       TEXT NOT NULL,         -- {hp, mp, level, exp, gold, ac, ...}
-  inventory    TEXT NOT NULL,
-  status_flags TEXT NOT NULL,
-  created_at   INTEGER NOT NULL
-);
+```typescript
+// src/persist/schema.ts
+import type { DBSchema } from 'idb';
 
-CREATE TABLE settings (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
+export interface WizardryDB extends DBSchema {
+  saveSlot: {
+    key: number;                            // autoIncrement
+    value: {
+      id: number;
+      name: string;
+      createdAt: number;                    // epoch ms
+      updatedAt: number;
+      gameState: string;                    // JSON シリアライズ済み GameState (characterId 参照のみ含む)
+    };
+    indexes: { 'by-updatedAt': number };    // 最新セーブを引く用
+  };
 
-CREATE TABLE meta (
-  key   TEXT PRIMARY KEY,
-  value TEXT NOT NULL                 -- db_version 等
-);
+  character: {
+    key: number;                            // autoIncrement
+    value: {
+      id: number;
+      slotId: number;                       // 紐付くスロット
+      name: string;
+      race: RaceId;
+      class: ClassId;
+      alignment: 'good' | 'neutral' | 'evil';
+      attributes: Attributes;
+      status: CharacterStatus;              // hp, mp, level, exp, gold, ac, ...
+      inventory: InventoryItem[];
+      statusFlags: StatusFlags;
+      createdAt: number;
+    };
+    indexes: { 'by-slotId': number };       // スロット内のキャラを引く用
+  };
+
+  settings: {
+    key: string;                            // 'lang' | 'scaleMode' | ...
+    value: string;
+  };
+
+  meta: {
+    key: string;                            // 'dbVersion' | 'lastPlayed'
+    value: string | number;
+  };
+}
+
+export const DB_NAME = 'wizardry-proving-grounds';
+export const DB_VERSION = 1;                // Chapter 1 では 1, 章ごとに上げる
 ```
 
 ### 設計判断
 
-- **JSON カラム多用**: Wizardry のキャラは項目数が多く章ごとに増える → JSON で柔軟性確保。検索クエリ非投入なので問題なし
-- **save_slot 1 行 = 冒険 1 つ**: 複数セーブ管理可
-- **character はスロット紐付き**: 1981 仕様の「ロスター」共有プールではなく、UX 重視でスロット独立。将来「他スロットからインポート」機能で代替可
+- **objectStore に schema-less な value**: Wizardry のキャラは項目数が多く章ごとに増える → 型レベルで定義しつつデータは柔軟に保持
+- **character の `gameState` JSON は文字列**: `idb` の `put` には Object のまま渡せるが、ブラウザ間で structuredClone の挙動差を避けるため明示的に JSON.stringify で文字列化する
+- **`saveSlot` 1 レコード = 冒険 1 つ**: 複数セーブ管理可
+- **`character` はスロット紐付き**: 1981 仕様の「ロスター」共有プールではなく、UX 重視でスロット独立 (`by-slotId` インデックスで検索)。将来「他スロットからインポート」機能で代替可
 
 ### 真理の所在 (single source of truth)
 
-`save_slot.game_state` (GameState の JSON) と `character` テーブルの関係を明確化:
+`saveSlot.gameState` (JSON 文字列) と `character` objectStore の関係:
 
-- **`character` テーブルが唯一の真理**（characters は `id` で識別）
-- **`save_slot.game_state` 内のパーティ・ロスターは `characterId` の参照のみを保持** (キャラの中身は持たない)
+- **`character` objectStore が唯一の真理**（characters は `id` で識別）
+- **`saveSlot.gameState` 内のパーティ・ロスターは `characterId` の参照のみを保持** (キャラの中身は持たない)
 - ロード時のフロー:
-  1. `save_slot.game_state` から JSON をデコード
-  2. JSON 内の `characterId` リストを使い、`character` テーブルから現在のキャラ実体を引いて GameState に注入
+  1. `saveSlot.gameState` から JSON をデコード
+  2. JSON 内の `characterId` リストを使い、`character` objectStore (index `by-slotId`) からキャラ実体を引いて GameState に注入
   3. その合成された state を `useGameStore` に投入
 - セーブ時のフロー:
-  1. キャラの差分（HP・装備・Gold 等）は `character` テーブルを直接 UPDATE
-  2. ステートマシンの位置・選択状態などは `save_slot.game_state` JSON に書く
+  1. キャラの差分（HP・装備・Gold 等）は `character.put` で objectStore を直接更新
+  2. ステートマシンの位置・選択状態などは `saveSlot.gameState` JSON に書く
 
 これにより同じキャラを 2 箇所で管理する重複が排除される。
 
-### マイグレーション
+### バージョン管理 (マイグレーション)
 
-```
-src/persist/migrations/
-├── 001_initial.sql   # Chapter 1
-├── 002_*.sql         # Chapter 2 で追加
-```
+IndexedDB の `onupgradeneeded` で版数管理する。`idb` の `openDB` API:
 
-`meta` テーブルの `db_version` で管理。
+```typescript
+// src/persist/db.ts
+import { openDB } from 'idb';
+import { DB_NAME, DB_VERSION, type WizardryDB } from './schema';
+
+export async function openWizardryDB() {
+  return openDB<WizardryDB>(DB_NAME, DB_VERSION, {
+    upgrade(db, oldVersion, newVersion) {
+      if (oldVersion < 1) {
+        const slots = db.createObjectStore('saveSlot', { keyPath: 'id', autoIncrement: true });
+        slots.createIndex('by-updatedAt', 'updatedAt');
+
+        const chars = db.createObjectStore('character', { keyPath: 'id', autoIncrement: true });
+        chars.createIndex('by-slotId', 'slotId');
+
+        db.createObjectStore('settings');
+        db.createObjectStore('meta');
+      }
+      // Chapter 2 以降では if (oldVersion < 2) { ... } を追加
+    },
+  });
+}
+```
 
 ### API
 
@@ -691,6 +792,10 @@ export const db = {
   loadState(id: SaveSlotId): Promise<GameState>;
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<void>;
+
+  // JSON エクスポート/インポート (バックアップ・端末移行用)
+  exportAll(): Promise<Blob>;                           // 全 DB 内容を JSON Blob で返す
+  importAll(json: Blob, mode: 'replace' | 'merge'): Promise<void>;
 };
 ```
 
@@ -708,34 +813,44 @@ db.saveState(slotId, currentGameState)
 
 ロードはタイトルの "Continue" → スロット一覧 → 選択 → 復元。
 
-### OPFS の挙動
+### IndexedDB の挙動と注意点
 
-- ブラウザの Origin Private File System に `wizardry.sqlite` として保持
-- ユーザーから直接見えない
+- ブラウザの IndexedDB に `wizardry-proving-grounds` という DB 名で保持
+- 開発者ツール → Application → Storage → IndexedDB から確認可能
 - ブラウザのキャッシュクリアで消える点を README/設定画面で告知
-- 将来「DB エクスポート→ファイル保存」機能の余地を残す
+- 容量: 各オリジン数十 MB〜数 GB（ブラウザ依存）/ Wizardry セーブデータには十分すぎる
 
-### OPFS 非対応ブラウザの挙動
+### プライベートモード/容量制限環境のフォールバック
 
-OPFS は Chrome/Edge 102+, Firefox 111+, Safari 16.4+ で対応。それ以前のブラウザでは以下の段階的フォールバック:
+IndexedDB は **ほぼ全ブラウザでサポート** されているが、以下の状況で失敗しうる:
+
+| 状況 | 挙動 |
+|---|---|
+| Safari Private Browsing | IndexedDB は使えるが容量制限が厳しい (ブラウザ閉じると消える可能性) |
+| Firefox Private Browsing | IndexedDB は in-memory として動作 (ブラウザ閉じると消える) |
+| ストレージ完全無効化 | `indexedDB === undefined` → 検出して警告表示 |
+
+#### フォールバック方針
 
 ```
-1. アプリ起動時に OPFS API の存在を検出
-   ─→ 非対応の場合、起動を中断せず以下を実行:
+1. アプリ起動時に IndexedDB API と "saveSlot" objectStore の動作確認 (1 件 put → get → delete)
+   ─→ 動作した場合: 通常モード
 
-2. メモリ内 SQLite (sqlite-wasm を OPFS なしモードで起動) を使用
-   ─→ プレイは可能だが、ブラウザを閉じると全データ消失
-   ─→ タイトル画面とセーブ画面で大きな警告バナーを表示:
-       "お使いのブラウザはセーブに非対応です。データは閉じると消えます。"
-       "This browser does not support saving. Data will be lost on close."
+2. 動作しなかった場合 (= 上記 3 番目のケース):
+   ─→ メモリ内 fallback (Map ベース) で起動
+   ─→ タイトル画面とセーブ画面で警告バナーを表示
+       "ブラウザのストレージが利用できません。閉じるとデータは消えます。"
+       "Browser storage is unavailable. Data will be lost when you close."
 
-3. localStorage または IndexedDB へのエクスポート機能をボタン提供
-   ─→ "Export save as file (.json)" ボタンで JSON ダウンロード可能に
-   ─→ "Import save from file" でファイル復元可能に
-   ─→ これは Chapter 1 のスコープに含める (Chapter 2 以降にしない)
+3. プライベートモードまたは容量制限環境 (上記 1, 2 番目のケース) は:
+   ─→ 通常通り動作するが、永続性が保証されない可能性を README に記載
+
+4. 全ケースで JSON エクスポート/インポート機能を提供 (Chapter 1 範囲):
+   ─→ "Export save as file (.json)" ボタンでローカルファイルに保存
+   ─→ "Import save from file" で復元
 ```
 
-これにより「セーブ不可で起動不能」を避け、最低限プレイ可能な状態を保つ。フォールバックの動作確認は手動 E2E チェックリストに含める。
+これにより環境依存のセーブ消失リスクをユーザー側で回避可能にする。動作確認は手動 E2E チェックリストに含める。
 
 ---
 
@@ -1112,10 +1227,10 @@ Apple II 実機との完全自動比較（output diff）は本プロジェクト
 □ ドア通過、階段マーカー表示の確認
 □ 1F 上り階段で Castle 帰還
 □ Castle → Temple でセーブ → タイトル → Continue で状態復元
-□ ブラウザリロード → タイトル → Continue → 状態復元（OPFS 永続化確認）
+□ ブラウザリロード → タイトル → Continue → 状態復元（IndexedDB 永続化確認）
 □ プレイ中の言語切替（EN ⇄ JA / 即時反映）
 □ ウィンドウサイズ変更で整数倍スケール維持
-□ OPFS 非対応ブラウザ (Safari 16.3 等の旧版) でフォールバック動作確認
+□ Firefox プライベートブラウジング等のメモリ内 IndexedDB 環境でフォールバック警告が出る
 □ JSON エクスポート/インポート (フォールバック機能) の動作確認
 ```
 
@@ -1136,12 +1251,12 @@ Apple II 実機との完全自動比較（output diff）は本プロジェクト
 | M2 | Edge of Town メニュー + Castle ハブ + 全施設のメニュー画面 (機能未実装、メニュー遷移のみ) | 3 日 | 5 日 |
 | M3 | Pascal CiderPress 抽出作業 + キャラ作成完成 + Tavern パーティ編成 + Boltac 売買 + Inn (Stables) + Utilities | 6 日 | 9 日 |
 | M4 | 迷宮データ抽出 (Pascal or tk421) + Wireframe テーブル構築 + Canvas 描画 + 歩行 + 1F 階段で Castle 帰還 | 6 日 | 10 日 |
-| M5 | SQLite + OPFS セーブ・ロード (寺院セーブ) + JSON エクスポート/インポート (フォールバック) | 3 日 | 5 日 |
+| M5 | IndexedDB セーブ・ロード (寺院セーブ) + JSON エクスポート/インポート (フォールバック) + 入力キュー実装 | 2 日 | 4 日 |
 | M6 | i18n 仕上げ (EN/JA 切替・ホットリロード) + 設定画面 | 2 日 | 3 日 |
 | M7 | 統合テスト + バグ修正 + デプロイ + README + CHANGELOG | 2 日 | 3 日 |
 
-**P50 合計**: 25 営業日 (5 週間)
-**P80 合計**: 40 営業日 (8 週間)
+**P50 合計**: 24 営業日 (約 5 週間)
+**P80 合計**: 39 営業日 (約 8 週間)
 
 P50 = 中央値 (50% の確率で完了する見積)、P80 = 楽観的でないバッファ込み (80% の確率で完了する見積)。
 
@@ -1153,10 +1268,11 @@ P50 = 中央値 (50% の確率で完了する見積)、P80 = 楽観的でない�
 
 | 項目 | 目標 (gzip) | 上限 (gzip) |
 |---|---|---|
-| 初期ロード JS + CSS | 800 KB | 1.2 MB |
-| WASM SQLite | 600 KB | 700 KB (官製ビルドそのまま) |
+| 初期ロード JS + CSS (React + Zustand + idb + アプリコード) | 200 KB | 350 KB |
 | フォント (Print Char 21 + 美咲フォント) | 80 KB | 120 KB |
-| 全体ペイロード (gzip 後) | 1.5 MB | 2.0 MB |
+| 全体ペイロード (gzip 後) | 300 KB | 500 KB |
+
+SQLite WASM 不採用により、当初予算 (1.5 MB / 2.0 MB) から大幅に削減。Lighthouse スコア 95+ を狙える水準。
 
 CI で `vite build` 後にバンドルサイズを計測し、上限超過は警告 → 翌週内に対処する。Lighthouse スコア 90+ を目標とする。
 
@@ -1168,13 +1284,12 @@ CI で `vite build` 後にバンドルサイズを計測し、上限超過は警
 |---|---|---|
 | Pascal MAZEDATA のフォーマット解読困難 | M4 遅延 | tk421 地図を二次ソースに切替（人手書き起こし、半日程度のバッファあり） |
 | Pascal Wireframe 座標の抽出困難 | 迷宮 3D 描画品質低下 | Internet Archive の Apple II 実機スクリーンショットから実測する代替手段あり |
-| OPFS 非対応ブラウザ | セーブ機能不可 | メモリ内 SQLite + JSON エクスポート/インポートにフォールバック (Chapter 1 範囲で実装) |
-| WASM SQLite のロード遅延 | 初回起動 UX 悪化 | スプラッシュ画面でロード進捗表示、サイズ予算 700KB に制限 |
+| プライベートブラウジング・ストレージ無効化環境 | セーブ消失リスク | メモリ内 fallback + JSON エクスポート/インポート (Chapter 1 範囲で実装)、警告バナー表示 |
 | Apple II 風フォントのライセンス | リリース不可 | M1 着手前に Print Char 21 / 美咲フォントのライセンス再確認、商用利用可フォントへの切替経路を準備 |
 | 1981 オリジナル仕様の数値が不確定 | 再現精度低下 | Pascal を最優先、tk421 / Wizardry Wiki を補助、不明点は `docs/chapters/1/open-questions.md` に記録 |
 | Chapter 1 が長期化 | モチベ低下 | M1 完了時点で Vercel に上げて毎週進捗を可視化、P80 を超えそうなら M3/M4 のスコープを再交渉 |
-| バンドル上限超過 | Lighthouse スコア低下、初回起動遅延 | M5 完了時点で計測、上限超過なら code-splitting (sqlite-wasm の遅延ロード等) を検討 |
-| WASM SQLite OPFS が iOS Safari で不安定 | iOS ユーザーのセーブ機能影響 | iOS Safari 16.4+ でしか動作しない仕様。15 系以前は前述のフォールバックで吸収 |
+| バンドル上限超過 | Lighthouse スコア低下、初回起動遅延 | M5 完了時点で計測、上限超過なら React の代替 (Preact 等) や code-splitting を検討 |
+| 入力キューのデッドロック | 演出が終わらず操作不能 | 入力キューに タイムアウト (5 秒) を設け、超過時は state を強制復元しキューをクリア |
 
 ---
 
@@ -1205,7 +1320,7 @@ CI で `vite build` 後にバンドルサイズを計測し、上限超過は警
 | HGR (Hi-Res Graphics 280×192) | Canvas 内部解像度 280×192 + 整数倍 scale |
 | Mouse Text フォント | Print Char 21 Web フォント |
 | UCSD Pascal | TypeScript（Pascal を仕様書として参照） |
-| ディスク I/O | OPFS + SQLite |
+| ディスク I/O | IndexedDB |
 | キーボード入力 | DOM keydown イベント |
 | Roster (キャラ共有プール) | save_slot ごとに独立した character テーブル |
 
