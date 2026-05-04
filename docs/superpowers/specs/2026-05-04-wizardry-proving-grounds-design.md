@@ -36,7 +36,7 @@
 4. Training Grounds でキャラ 6 人作成（種族・職業・属性・名前・能力値振り分け）
 5. Tavern でパーティ編成（最大 6 人）
 6. Inn で休息（HP 全快のみ。レベルアップは Chapter 2）
-7. Boltac's Trading Post で買い物（Chapter 1 装備のみ、フレーバー）
+7. Boltac's Trading Post で買い物（Chapter 1 装備のみ。所持金・所持品は実際に増減する。装備による戦闘パラメータ計算は Chapter 2 で実装するため、Chapter 1 では「数値表示のみで効果は未反映」とする）
 8. Edge of Town → Maze 1F に進入
 9. 1F の壁・扉・階段に従って歩行（前進・後退・左回転・右回転）
 10. 自動マッピング表示
@@ -369,6 +369,22 @@ CREATE TABLE meta (
 - **save_slot 1 行 = 冒険 1 つ**: 複数セーブ管理可
 - **character はスロット紐付き**: 1981 仕様の「ロスター」共有プールではなく、UX 重視でスロット独立。将来「他スロットからインポート」機能で代替可
 
+### 真理の所在 (single source of truth)
+
+`save_slot.game_state` (GameState の JSON) と `character` テーブルの関係を明確化:
+
+- **`character` テーブルが唯一の真理**（characters は `id` で識別）
+- **`save_slot.game_state` 内のパーティ・ロスターは `characterId` の参照のみを保持** (キャラの中身は持たない)
+- ロード時のフロー:
+  1. `save_slot.game_state` から JSON をデコード
+  2. JSON 内の `characterId` リストを使い、`character` テーブルから現在のキャラ実体を引いて GameState に注入
+  3. その合成された state を `useGameStore` に投入
+- セーブ時のフロー:
+  1. キャラの差分（HP・装備・Gold 等）は `character` テーブルを直接 UPDATE
+  2. ステートマシンの位置・選択状態などは `save_slot.game_state` JSON に書く
+
+これにより同じキャラを 2 箇所で管理する重複が排除される。
+
 ### マイグレーション
 
 ```
@@ -452,7 +468,14 @@ export const RACES = {
 
 ```typescript
 export type CellEdge = 'open' | 'wall' | 'door' | 'secretDoor';
-export type SpecialTile = 'none' | 'stairsUp' | 'stairsDown' | 'darkness' | 'spinner' | 'message';
+export type SpecialTile =
+  | 'none'
+  | 'stairsUp'
+  | 'stairsDown'
+  | 'darkness'      // Chapter 1 では「移動可能・視界制限なし」として扱う（演出は Chapter 4）
+  | 'spinner'       // Chapter 1 では「無効」として扱う（実装は Chapter 4）
+  | 'teleport'      // Chapter 1 では「無効」として扱う（実装は Chapter 4）
+  | 'message';      // Chapter 1 で実装（i18n の messageId 経由）
 
 export interface Cell {
   edges: { n: CellEdge; e: CellEdge; s: CellEdge; w: CellEdge };
@@ -462,6 +485,26 @@ export interface Cell {
 
 export const MAZE_L1: Cell[][] = [/* 20×20 = 400 セル */];
 ```
+
+### Edge の正規化ルール
+
+隣接セルの壁が矛盾しないよう、**北と西側の Edge のみを真理**として保持し、南・東は隣接セルの北・西から導出する:
+
+- セル `(x, y)` の南エッジ = セル `(x, y+1)` の北エッジ
+- セル `(x, y)` の東エッジ = セル `(x+1, y)` の西エッジ
+- 端のセル（`y == 19` の南、`x == 19` の東）は別途 `boundaryEdges: { south: CellEdge[]; east: CellEdge[] }` を保持
+
+データ抽出時は冗長に持って良いが、エクスポート前に整合性チェックを走らせる。
+
+### Chapter 1 における特殊マスの扱い
+
+L1 にはオリジナルで暗闇マス・回転床・テレポートが存在するが、Chapter 1 では:
+
+- **`stairsUp` / `stairsDown` / `message`**: 実装する
+- **`darkness`**: マス情報としては保持するが、Chapter 1 では「通常マスとして表示」（演出を Chapter 4 で追加）
+- **`spinner` / `teleport`**: マス情報としては保持するが、Chapter 1 では「踏んでも何も起きない」（Chapter 4 で挙動実装）
+
+このため Chapter 1 のテストでは「特殊マス上で歩行できる」「データが正しく読まれる」までを確認し、特殊効果の発動はテスト対象外とする。
 
 ### 抽出戦略
 
@@ -643,12 +686,13 @@ expect(rollBonus(rng)).toBe(7);
 |---|---|---|
 | M1 | プロジェクト基盤 + Apple II UI 基盤 + Title 画面 + 初回 Vercel デプロイ | 2-3 日 |
 | M2 | Castle ハブ + 全施設のガラ画面（メニューだけ機能） | 3-4 日 |
-| M3 | キャラ作成完成 + パーティ編成 | 3-4 日 |
+| M3 | キャラ作成完成 + パーティ編成 + Boltac 売買 (所持金・所持品の増減) | 4-5 日 |
 | M4 | 迷宮データ + Canvas 描画 + 歩行 | 5-7 日 |
-| M5 | SQLite セーブ・ロード + i18n 仕上げ + バグ修正 | 3-4 日 |
-| M6 | 統合テスト・デプロイ・README | 1-2 日 |
+| M5 | SQLite + OPFS セーブ・ロード（寺院セーブ含む） | 2-3 日 |
+| M6 | i18n 仕上げ（EN/JA 切替）+ 設定画面 | 1-2 日 |
+| M7 | 統合テスト・バグ修正・デプロイ・README | 1-2 日 |
 
-合計: 20〜25 営業日 (4〜5 週間 / フルタイム近い投入で 3〜4 週間)。
+合計: 18〜26 営業日 (4〜5 週間 / フルタイム近い投入で 3〜4 週間)。
 
 ---
 
