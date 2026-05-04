@@ -108,7 +108,7 @@
 | 描画 (迷宮) | HTML5 Canvas 2D | HGR 風ワイヤーフレーム |
 | 描画 (UI) | HTML + CSS | Apple II 風フォント・配色 |
 | Lint/Format | Biome | ESLint + Prettier 代替 |
-| テスト | Vitest | jsdom 環境含む |
+| テスト | Vitest + fake-indexeddb | jsdom 環境含む / 非同期副作用テストでは IDB をモック |
 | E2E | Playwright (Chapter 2 以降) | Chapter 1 は手動チェック |
 | ホスティング | Vercel | 静的サイト（`vite build` の `dist/` を配信） |
 | CI | GitHub Actions | lint + test + build |
@@ -242,7 +242,12 @@ interface CharacterDraft {
 }
 
 // 各画面の Sub-state
-type TitleSubState = 'main' | 'continueMenu' | 'settings';
+type TitleSubState =
+  | { kind: 'main' }
+  | { kind: 'continueMenu'; slots: SaveSlotInfo[] }
+  | { kind: 'loading'; slotId: SaveSlotId }                  // 非同期ロード中 (入力ブロック)
+  | { kind: 'loadError'; reason: string }                    // ロード失敗
+  | { kind: 'settings' };
 type TrainingSubState =
   | { kind: 'menu' }                                              // ロスター一覧
   | { kind: 'creating'; step: 'name' | 'race' | 'alignment' | 'rollAttributes' | 'allocateBonus' | 'pickClass' | 'confirm'; draft: CharacterDraft }
@@ -262,7 +267,9 @@ type TempleSubState =
   | { kind: 'menu' }
   | { kind: 'savePicker'; slots: SaveSlotInfo[]; mode: 'overwrite' | 'newSlot' }     // 独自追加
   | { kind: 'saveConfirm'; slotId: SaveSlotId | 'new'; name: string }                // 独自追加
-  | { kind: 'saveDone' };                                                            // 独自追加
+  | { kind: 'saving'; slotId: SaveSlotId | 'new'; name: string }                     // 非同期書き込み中 (入力ブロック)
+  | { kind: 'saveDone' }                                                             // 成功
+  | { kind: 'saveError'; reason: string };                                           // 失敗 (容量不足等)
 type InnSubState =
   | { kind: 'menu' }
   | { kind: 'pickGuest' }
@@ -342,12 +349,21 @@ type GameEvent =
   | { type: 'buyItem'; itemId: ItemId }
   | { type: 'sellItem'; itemIndex: number }
 
-  // Temple (独自セーブ機能)
+  // Temple (独自セーブ機能) — 同期操作
   | { type: 'openSaveMenu' }
   | { type: 'pickSlot'; slot: SaveSlotId | 'new' }
   | { type: 'inputSlotName'; name: string }
-  | { type: 'confirmSave' }
+  | { type: 'confirmSave' }                                 // ユーザー押下 → 内部で saveStarted へ
   | { type: 'cancelSave' }
+  | { type: 'dismissSaveResult' }                           // saveDone / saveError から menu へ戻る
+
+  // 非同期ライフサイクル (内部 dispatch)
+  | { type: 'saveStarted' }                                 // db.saveState 着手 (state を 'saving' に)
+  | { type: 'saveSucceeded'; slotId: SaveSlotId }           // 完了
+  | { type: 'saveFailed'; reason: string }                  // 失敗 (例: QuotaExceededError)
+  | { type: 'loadStarted'; slotId: SaveSlotId }             // db.loadState 着手 (state を 'loading' に)
+  | { type: 'loadSucceeded'; state: GameState; characters: Character[] }
+  | { type: 'loadFailed'; reason: string }
 
   // Inn
   | { type: 'pickGuest'; slot: SlotIndex }
@@ -417,14 +433,16 @@ function reduce(state: GameState, event: GameEvent): GameState {
 
 各 phase の reducer は純粋関数。Vitest でテーブルテスト可能。
 
-### Zustand 連携 (入力キュー対応)
+### Zustand 連携 (入力キュー対応・基本形)
+
+> 以下は **入力キューの最小実装例**。実装時は次節「非同期副作用の統合」で `isBusy` と `runEffect` を組み込んだ最終形を採用する。
 
 ```typescript
 const MAX_QUEUED_INPUTS = 1;     // 先行入力の許容数 (1 = 「次の 1 操作を予約」可能)
 const QUEUE_TIMEOUT_MS = 5000;   // 5 秒経っても演出が終わらないなら強制クリア
 
 const useGameStore = create<GameStore>((set, get) => ({
-  state: { phase: 'title', sub: 'main' },
+  state: { phase: 'title', sub: { kind: 'main' } },
   isAnimating: false,
   inputQueue: [] as GameEvent[],
 
@@ -475,7 +493,136 @@ const useGameStore = create<GameStore>((set, get) => ({
 - `MAX_QUEUED_INPUTS = 1`: 「現在の演出 + 次の 1 操作」までキューイング。複数溜め込むと長押し連打で意図しない遠方移動が発生するため抑制
 - `QUEUE_TIMEOUT_MS = 5000`: 演出が完了しないバグが起きても 5 秒で復帰。本番では発生しない想定
 - `queueMicrotask`: 演出完了コールバック内で直接 dispatch すると、まれに React の更新タイミングと衝突するため microtask に逃がす
-- キーリピート方針: 「移動系のみ抑制 / メニュー操作は許可」のコンテキスト依存ポリシー (詳細は次節)
+- キーリピート方針: 「移動系のみ抑制 / メニュー操作は許可」のコンテキスト依存ポリシー (詳細は Section 9)
+
+### 非同期副作用の統合 (Side-effect Orchestration)
+
+Reducer は純関数だが、**永続化 (IndexedDB I/O)** は非同期。これを安全に繋ぐため「**コマンドイベント / 完了イベント**」の 2 段階ディスパッチ方式を採用する。Redux で言うと thunk + lifecycle action のミニマル版。
+
+#### パターン
+
+```
+ユーザー操作 (例: confirmSave)
+  ↓ dispatch
+Reducer: state を 'saving' に遷移 (= 入力ブロック状態に入る)
+  ↓ store.dispatchEffect が発火を検知
+副作用ランナー: await db.saveState(...) を裏で実行
+  ↓ 完了
+内部 dispatch: saveSucceeded / saveFailed
+  ↓ Reducer
+state を 'saveDone' / 'saveError' に遷移
+```
+
+#### 入力ブロックの拡張
+
+`isBusy` フラグを `isAnimating` と並列に追加し、両方 false のときだけ入力を即時処理:
+
+```typescript
+const useGameStore = create<GameStore>((set, get) => ({
+  state: { phase: 'title', sub: { kind: 'main' } },
+  isAnimating: false,
+  isBusy: false,                 // 非同期処理中
+  inputQueue: [] as GameEvent[],
+
+  dispatch: (event) => {
+    // 内部発火イベント (saveStarted/Succeeded/Failed 等) は常に通す
+    const isInternal = INTERNAL_EVENT_TYPES.includes(event.type);
+
+    if (!isInternal && (get().isAnimating || get().isBusy)) {
+      const queue = get().inputQueue;
+      if (queue.length < MAX_QUEUED_INPUTS) {
+        set({ inputQueue: [...queue, event] });
+      }
+      return;
+    }
+
+    const next = reduce(get().state, event);
+    const anim = bindAnimation(get().state, next);
+    set({ state: next });
+
+    // 副作用が必要な遷移を検知
+    const effect = bindEffect(get().state, next);
+    if (effect) {
+      set({ isBusy: true });
+      runEffect(effect, get().dispatch).finally(() => {
+        set({ isBusy: false });
+        flushQueue(get, set);
+      });
+    }
+
+    if (anim) {
+      set({ isAnimating: true });
+      runAnimation(anim, () => {
+        set({ isAnimating: false });
+        flushQueue(get, set);
+      });
+    }
+  },
+}));
+```
+
+#### 副作用バインダー
+
+```typescript
+type Effect =
+  | { type: 'save'; slotId: SaveSlotId | 'new'; name: string }
+  | { type: 'load'; slotId: SaveSlotId };
+
+function bindEffect(prev: GameState, next: GameState): Effect | null {
+  // saving 状態への遷移を検知 → save エフェクトを起動
+  if (next.phase === 'temple' && next.sub.kind === 'saving') {
+    return { type: 'save', slotId: next.sub.slotId, name: next.sub.name };
+  }
+  if (next.phase === 'title' && next.sub.kind === 'loading') {
+    return { type: 'load', slotId: next.sub.slotId };
+  }
+  return null;
+}
+
+async function runEffect(effect: Effect, dispatch: (e: GameEvent) => void): Promise<void> {
+  if (effect.type === 'save') {
+    try {
+      const slotId = await db.saveState(/* ... */);
+      dispatch({ type: 'saveSucceeded', slotId });
+    } catch (err) {
+      dispatch({ type: 'saveFailed', reason: errorMessage(err) });
+    }
+  }
+  if (effect.type === 'load') {
+    try {
+      const { state, characters } = await db.loadState(effect.slotId);
+      dispatch({ type: 'loadSucceeded', state, characters });
+    } catch (err) {
+      dispatch({ type: 'loadFailed', reason: errorMessage(err) });
+    }
+  }
+}
+```
+
+#### Reducer 側の責務
+
+Reducer は **エフェクトを直接実行しない**。代わりに:
+
+- `confirmSave` を受け取ったら → `temple.sub` を `'saveConfirm'` から `'saving'` に遷移 (これだけ)
+- `saveSucceeded` を受け取ったら → `'saveDone'` に遷移
+- `saveFailed` を受け取ったら → `'saveError'` に遷移
+- `dismissSaveResult` で `'menu'` に戻る (ユーザーが結果メッセージを閉じる)
+
+Reducer は純粋なまま、副作用の指示は state の `kind: 'saving'` に込められる。`bindEffect` がそれを翻訳する。
+
+#### 競合防止の不変条件
+
+- `isBusy` または `isAnimating` の間は、内部発火イベント以外の dispatch は一律キューイング
+- 内部イベント (`saveStarted`/`saveSucceeded`/`saveFailed`/`loadStarted`/...) は **入力キューを経由せず即時処理**
+- 副作用ランナーは「state が `saving` になった瞬間」だけ起動。同じ state が連続して `saving` になっても重複起動しないよう、`prev.kind !== 'saving' && next.kind === 'saving'` の遷移のみで起動
+- `inputQueue` のフラッシュは `isBusy` と `isAnimating` の **両方が false に戻ったとき**
+
+#### テスト戦略
+
+- **Reducer**: 副作用イベント (`saveSucceeded` 等) を引数に渡したときの遷移をテーブルテスト
+- **bindEffect**: state ペアからの Effect 判定を純関数として網羅
+- **runEffect**: db をモックして saveState 成功/失敗の両ケースをテスト
+- **Store integration**: Vitest jsdom + 偽 IDB (fake-indexeddb) で end-to-end フロー検証
 
 ### セーブとの関係
 
