@@ -475,7 +475,7 @@ const useGameStore = create<GameStore>((set, get) => ({
 - `MAX_QUEUED_INPUTS = 1`: 「現在の演出 + 次の 1 操作」までキューイング。複数溜め込むと長押し連打で意図しない遠方移動が発生するため抑制
 - `QUEUE_TIMEOUT_MS = 5000`: 演出が完了しないバグが起きても 5 秒で復帰。本番では発生しない想定
 - `queueMicrotask`: 演出完了コールバック内で直接 dispatch すると、まれに React の更新タイミングと衝突するため microtask に逃がす
-- キーリピートとの相性: ブラウザの keydown リピートは `event.repeat === true` で検出可能。Plan で **キーリピート時はキューに積まない** というポリシーを実装する
+- キーリピート方針: 「移動系のみ抑制 / メニュー操作は許可」のコンテキスト依存ポリシー (詳細は次節)
 
 ### セーブとの関係
 
@@ -501,14 +501,91 @@ const useGameStore = create<GameStore>((set, get) => ({
 ```
 ウィンドウサイズ
   ↓
-内部 viewport: 280×192
+内部 viewport: 280×192 (= 仮想ピクセルグリッド)
   ↓
-CSS transform: scale() で整数倍 (1x / 2x / 3x / 4x)
+CSS transform: scale(N) で整数倍 (1x / 2x / 3x / 4x)
   ↓
 ウィンドウからはみ出す場合は縮小、最小は 1x
 ```
 
 `image-rendering: pixelated` でアンチエイリアス無効。
+
+### DOM ↔ Canvas のピクセルアライメント
+
+ハイブリッド方式 (Canvas + HTML/CSS) において、両者を **同じ仮想ピクセルグリッド (280×192)** に揃える必要がある。揃わないと Apple II 風の「パキッとした」表示が崩れ、現代風アンチエイリアスや 0.5px ズレが目立つ。
+
+#### 仮想ピクセル単位 `--vp` を CSS 変数として定義
+
+```css
+/* src/ui/global.css */
+:root {
+  /* 起動時に JS から動的セット: ウィンドウサイズに合わせ整数倍 */
+  --scale: 3;                          /* 1, 2, 3, 4 のいずれか */
+  --vp: calc(1px * var(--scale));      /* 仮想ピクセル 1 個分の実 px */
+  --viewport-width:  calc(280 * var(--vp));  /* 全体幅 */
+  --viewport-height: calc(192 * var(--vp));  /* 全体高 */
+  --font-size-glyph: calc(8 * var(--vp));    /* 7×8 グリフ → 8vp 高で表示 */
+}
+
+#root {
+  width: var(--viewport-width);
+  height: var(--viewport-height);
+  position: relative;     /* Canvas と DOM オーバーレイの基準 */
+}
+
+.menu-frame {
+  /* すべて vp 単位 → 整数倍スケールに完全同期 */
+  padding: calc(2 * var(--vp));
+  border: var(--vp) solid white;
+  font-size: var(--font-size-glyph);
+  line-height: var(--font-size-glyph);
+}
+
+.canvas-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--viewport-width);
+  height: var(--viewport-height);
+  image-rendering: pixelated;
+}
+```
+
+#### 仮想ピクセル運用の鉄則
+
+1. **DOM 要素のサイズ・余白・フォントは常に `var(--vp)` の整数倍**: `padding: 0.5em;` のような相対単位を禁止
+2. **`--scale` は整数のみ**: `2.5x` や `1.5x` は禁止 (サブピクセルが発生する)
+3. **フォントサイズは 7vp / 8vp / 14vp / 16vp の固定値**: グリフが整数倍にスケールされて鋭く描画される
+4. **`transform` を使う場合は `translateZ(0)`** でレイヤを GPU 合成に押し上げ、サブピクセル sub-pixel snap を有効化
+5. **Canvas 内部解像度は 280×192 のまま固定**: CSS で拡大するだけ。`canvas.width = window.innerWidth` のようにリサイズしてはいけない
+
+#### スケール計算ロジック
+
+```typescript
+// src/ui/scale.ts
+export function computeScale(winWidth: number, winHeight: number): number {
+  const sx = Math.floor(winWidth  / 280);
+  const sy = Math.floor(winHeight / 192);
+  return Math.max(1, Math.min(sx, sy));   // 整数化 + 最小 1
+}
+
+window.addEventListener('resize', () => {
+  const s = computeScale(innerWidth, innerHeight);
+  document.documentElement.style.setProperty('--scale', String(s));
+});
+```
+
+#### Canvas / DOM の境界
+
+| 描画対象 | レイヤ | 理由 |
+|---|---|---|
+| 迷宮 3D ワイヤーフレーム | Canvas | 線分の動的計算が必要 |
+| メニュー枠・ASCII 罫線 | DOM (CSS) | テキスト選択・アクセシビリティ・i18n が容易 |
+| キャラステータス文字列 | DOM | i18n 対応・ホットリロード |
+| メッセージウィンドウ | DOM | 同上 |
+| Apple II ピクセルロゴ等 | Canvas もしくは画像 | 画像要素なら `image-rendering: pixelated` で OK |
+
+DOM レイヤと Canvas レイヤは絶対配置で重ね、両方とも同じ vp グリッドに従うため、見た目はシームレスに統合される。
 
 ### Canvas 層（迷宮ビュー）
 
@@ -657,12 +734,50 @@ isAnimating === true ?
 - 「前進 → 前進 → 前進」と素早く 3 回押した場合、1 歩目の演出中に 2 歩目を予約、2 歩目開始時に 3 歩目は捨てる (= 連打を 1 段先読みのみ許す)
 - 「右回転 → 前進」のように違う操作を続けて押した場合、回転完了後に前進が連続実行される (探索の快適性が大幅向上)
 
-**キーリピート対策**:
-- ブラウザの auto-repeat (キー長押し) は `event.repeat === true` で検出
-- リピートイベントはキューに積まない (= 押しっぱなしでは 1 操作のみ)
-- 明示的に押し直した場合のみキューに入る (= プレイヤーの意図を尊重)
+### キーリピートのコンテキスト依存ポリシー
 
-**実装**: 詳細は Section 4「Zustand 連携 (入力キュー対応)」のコード例を参照。
+ブラウザの auto-repeat (キー長押し) は `event.repeat === true` で検出可能。ただし **無条件に抑制すると UI 操作性を損なう** ため、画面ごとにポリシーを変える。
+
+#### コンテキスト分類
+
+| カテゴリ | 対象 phase / sub | リピート挙動 |
+|---|---|---|
+| **移動系** (連打抑制) | `maze` 内の moveForward/Backward/turnLeft/Right | リピート無効 (1 タップ = 1 移動) |
+| **メニュー系** (リピート許可) | `tavern`, `boltac`, `temple`, `inn`, `training` の各メニュー、settings | リピート有効 (押しっぱなしでカーソル送り) |
+| **テキスト入力** (OS 委譲) | キャラ名入力、セーブスロット名入力 | リピート挙動は OS / IME に委ねる |
+
+#### 実装
+
+入力ハンドラ層で `event.repeat` をチェックし、**コンテキストに応じた dispatch** を行う:
+
+```typescript
+// src/ui/keyHandler.ts
+function handleKeydown(event: KeyboardEvent): void {
+  const { phase } = useGameStore.getState().state;
+
+  // 移動系のリピート抑制 (maze 内の移動コマンドのみ)
+  const isMovement = phase === 'maze' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key);
+  if (isMovement && event.repeat) return;   // リピートは無視
+
+  // それ以外は通常 dispatch (リピートも有効)
+  const gameEvent = mapKeyToEvent(event, phase);
+  if (gameEvent) {
+    useGameStore.getState().dispatch(gameEvent);
+  }
+}
+```
+
+#### キーリピート遅延
+
+メニューでカーソル送りリピートが効きすぎると意図せず項目を飛ばす可能性があるため、**追加の throttle** を入れる:
+
+- 初回押下: 即時 dispatch
+- 連続リピート: 100ms ごとに 1 回 dispatch (= 1 秒で 10 項目移動)
+- ブラウザのデフォルトリピート速度より少し遅め
+
+これは入力ハンドラ層のローカル state で実現する (Zustand には乗せない)。
+
+**実装の詳細**: Section 4「Zustand 連携 (入力キュー対応)」のコード例 + 上記キーハンドラを参照。
 
 ---
 
@@ -752,6 +867,62 @@ export const DB_VERSION = 1;                // Chapter 1 では 1, 章ごとに�
 
 これにより同じキャラを 2 箇所で管理する重複が排除される。
 
+### トランザクション制御 (重要)
+
+複数の objectStore (`saveSlot` + `character`) を跨ぐ更新は **必ず単一トランザクション内でアトミックに実行する**。タブクラッシュ・電源断・タブクローズが書き込み中に発生しても、データ不整合 (キャラだけ更新されてセーブスロットの参照が古いまま等) を防ぐため。
+
+```typescript
+// src/persist/db.ts
+export async function saveStateAtomic(
+  slotId: SaveSlotId,
+  state: GameState,
+  changedCharacters: Character[]
+): Promise<void> {
+  const idb = await openWizardryDB();
+  // saveSlot と character を同一トランザクションでロック
+  const tx = idb.transaction(['saveSlot', 'character'], 'readwrite');
+  try {
+    // 1. キャラ差分を全件 put
+    for (const c of changedCharacters) {
+      await tx.objectStore('character').put(c);
+    }
+    // 2. セーブスロットを更新
+    await tx.objectStore('saveSlot').put({
+      id: slotId,
+      name: ...,
+      createdAt: ...,
+      updatedAt: Date.now(),
+      gameState: JSON.stringify(serializableState(state)),
+    });
+    // 3. コミット (idb は tx.done を await で待つ)
+    await tx.done;
+  } catch (err) {
+    // tx は自動 abort される
+    throw new SaveFailedError(err);
+  }
+}
+```
+
+#### 守るべき不変条件
+
+- **書き込みは常にトランザクションで囲う**: 単一 store の `put` でも、エラー時のロールバック挙動が予測しやすくなる
+- **読み取り後の書き込みは同一トランザクション内**: 「キャラ HP を読んで → 計算 → 書き戻す」のようなパターンは別 tx だと race condition が起きうる
+- **トランザクション中は await チェーンを切らない**: トランザクションは「次の microtask」で auto-commit されるため、間に非同期処理 (fetch 等) を挟むと閉じてしまう
+- **エラー時は tx.abort() を呼ぶ**: idb は例外時に自動 abort するが、明示的に呼ぶケースもあり
+
+#### ロード時のトランザクション
+
+ロード時 (`loadState`) も `readonly` トランザクションで両 store を読む:
+
+```typescript
+const tx = idb.transaction(['saveSlot', 'character'], 'readonly');
+const slot = await tx.objectStore('saveSlot').get(slotId);
+const chars = await tx.objectStore('character').index('by-slotId').getAll(slotId);
+await tx.done;
+```
+
+これにより「読み取り中に他タブで書き込まれて状態がブレる」リスクを排除する (同一タブ内であれば原子性が保証される)。
+
 ### バージョン管理 (マイグレーション)
 
 IndexedDB の `onupgradeneeded` で版数管理する。`idb` の `openDB` API:
@@ -788,12 +959,16 @@ export const db = {
   listSlots(): Promise<SaveSlot[]>;
   createSlot(name: string): Promise<SaveSlotId>;
   deleteSlot(id: SaveSlotId): Promise<void>;
-  saveState(id: SaveSlotId, state: GameState): Promise<void>;
-  loadState(id: SaveSlotId): Promise<GameState>;
+
+  // 永続化はすべて単一トランザクションで実行 (詳細は「トランザクション制御」節)
+  saveState(id: SaveSlotId, state: GameState, changedCharacters: Character[]): Promise<void>;
+  loadState(id: SaveSlotId): Promise<{ state: GameState; characters: Character[] }>;
+
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<void>;
 
   // JSON エクスポート/インポート (バックアップ・端末移行用)
+  // exportAll は readonly トランザクション、importAll は readwrite トランザクションで全 store を更新
   exportAll(): Promise<Blob>;                           // 全 DB 内容を JSON Blob で返す
   importAll(json: Blob, mode: 'replace' | 'merge'): Promise<void>;
 };
