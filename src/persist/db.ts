@@ -1,3 +1,4 @@
+import type { Character } from "@/engine/state/types";
 import { type IDBPDatabase, openDB } from "idb";
 import { DB_NAME, DB_VERSION, type WizardryDB } from "./schema";
 
@@ -44,5 +45,29 @@ export const db = {
     await idb.put("settings", value, key);
   },
 
-  // listSlots / saveState / loadState / deleteSlot は M5 で実装
+  // Character CRUD (M3)
+  async listCharacters(slotId: number): Promise<Character[]> {
+    const idb = await openWizardryDB();
+    return idb.getAllFromIndex("character", "by-slotId", slotId);
+  },
+
+  async addCharacter(c: Omit<Character, "id">): Promise<number> {
+    const idb = await openWizardryDB();
+    return (await idb.add("character", c as Character)) as number;
+  },
+
+  async updateCharacter(c: Character): Promise<void> {
+    const idb = await openWizardryDB();
+    await idb.put("character", c);
+  },
+
+  async getCharacter(id: number): Promise<Character | undefined> {
+    const idb = await openWizardryDB();
+    return idb.get("character", id);
+  },
+
+  async deleteCharacter(id: number): Promise<void> {
+    const idb = await openWizardryDB();
+    await idb.delete("character", id);
+  },
 };

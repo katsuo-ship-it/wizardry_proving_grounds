@@ -1,3 +1,8 @@
+import type { Alignment } from "@/engine/data/alignments";
+import type { ClassId } from "@/engine/data/classes";
+import type { ItemId } from "@/engine/data/items";
+import type { RaceId } from "@/engine/data/races";
+
 // 言語
 export type Lang = "en" | "ja";
 
@@ -9,7 +14,7 @@ export interface SaveSlotInfo {
   updatedAt: number;
 }
 
-// パーティ・キャラ (M3 でキャラ追加が始まるが、M2 で型を先に定義)
+// パーティ・キャラ
 export type CharacterId = number;
 export type SlotIndex = 0 | 1 | 2 | 3 | 4 | 5;
 export type Direction = "n" | "e" | "s" | "w";
@@ -19,6 +24,74 @@ export interface MazePosition {
   x: number;
   y: number;
   dir: Direction;
+}
+
+// キャラクター
+export type AttributeKey = "str" | "iq" | "pie" | "vit" | "agi" | "luk";
+
+export interface Attributes {
+  str: number;
+  iq: number;
+  pie: number;
+  vit: number;
+  agi: number;
+  luk: number;
+}
+
+export interface CharacterStatus {
+  hp: number;
+  hpMax: number;
+  mp: { mage: number; priest: number };
+  mpMax: { mage: number; priest: number };
+  level: number;
+  exp: number;
+  gold: number;
+  ac: number;
+  age: number;
+  /** Inn での休息回数 (Chapter 2 で年齢加算判定に使用) */
+  restCount: number;
+}
+
+export interface InventoryItem {
+  itemId: ItemId;
+  identified: boolean; // Chapter 1 では常に true (識別/未識別は Chapter 4)
+  cursed: boolean; // Chapter 1 では常に false
+  equipped: boolean;
+}
+
+export type StatusFlag =
+  | "ok"
+  | "afraid"
+  | "asleep"
+  | "paralyzed"
+  | "petrified"
+  | "dead"
+  | "ashes"
+  | "lost";
+
+export interface Character {
+  id: number; // IndexedDB autoIncrement
+  slotId: number;
+  name: string;
+  race: RaceId;
+  class: ClassId;
+  alignment: Alignment;
+  attributes: Attributes;
+  status: CharacterStatus;
+  inventory: InventoryItem[];
+  statusFlag: StatusFlag;
+  createdAt: number;
+}
+
+/** キャラ作成時の作業中データ */
+export interface CharacterDraft {
+  name: string;
+  race: RaceId;
+  alignment: Alignment;
+  baseAttributes: Attributes;
+  attributes: Attributes;
+  bonusPointsRemaining: number;
+  selectedClass: ClassId | null;
 }
 
 export interface PartyState {
@@ -45,23 +118,58 @@ export type TitleSubState =
 // Edge of Town: メニューと退出確認
 export type EdgeOfTownSubState = { kind: "menu" } | { kind: "confirmLeave" };
 
-// Castle, Training, Utilities, Tavern, Boltac, Temple, Inn, Maze は M2 では menu のみ。
+// Castle, Utilities, Maze は M2 から menu のみ
 export type SimpleSubState = { kind: "menu" };
+
+// Training: 7 ステップキャラ作成フロー
+export type CreatingStep =
+  | "name"
+  | "race"
+  | "alignment"
+  | "rollAttributes"
+  | "allocateBonus"
+  | "pickClass"
+  | "confirm";
+
+export type TrainingSubState =
+  | { kind: "menu" }
+  | { kind: "creating"; step: CreatingStep; draft: CharacterDraft }
+  | { kind: "inspecting"; characterId: CharacterId }
+  | { kind: "deleteConfirm"; characterId: CharacterId };
+
+// Tavern
+export type TavernSubState =
+  | { kind: "menu" }
+  | { kind: "addMember"; rosterIds: CharacterId[] }
+  | { kind: "inspecting"; slot: SlotIndex };
+
+// Boltac
+export type BoltacSubState =
+  | { kind: "menu" }
+  | { kind: "pickBuyer"; mode: "buy" | "sell" }
+  | { kind: "buyList"; buyer: CharacterId }
+  | { kind: "sellList"; seller: CharacterId };
+
+// Inn
+export type InnSubState =
+  | { kind: "menu" }
+  | { kind: "pickGuest" }
+  | { kind: "rest"; guest: CharacterId };
 
 // GameState union
 export type GameState =
   | { phase: "title"; sub: TitleSubState }
   | { phase: "edgeOfTown"; sub: EdgeOfTownSubState; party: PartyState }
   | { phase: "castle"; sub: SimpleSubState; party: PartyState }
-  | { phase: "training"; sub: SimpleSubState; party: PartyState }
+  | { phase: "training"; sub: TrainingSubState; party: PartyState }
   | { phase: "utilities"; sub: SimpleSubState; party: PartyState }
-  | { phase: "tavern"; sub: SimpleSubState; party: PartyState }
-  | { phase: "boltac"; sub: SimpleSubState; party: PartyState }
+  | { phase: "tavern"; sub: TavernSubState; party: PartyState }
+  | { phase: "boltac"; sub: BoltacSubState; party: PartyState }
   | { phase: "temple"; sub: SimpleSubState; party: PartyState }
-  | { phase: "inn"; sub: SimpleSubState; party: PartyState }
+  | { phase: "inn"; sub: InnSubState; party: PartyState }
   | { phase: "maze"; sub: SimpleSubState; party: PartyState };
 
-// イベント (Chapter 1 / M2 範囲)
+// イベント
 export type GameEvent =
   // Title
   | { type: "startGame" }
@@ -86,6 +194,41 @@ export type GameEvent =
   | { type: "leaveCastle" }
   // Placeholder phases 共通の戻る
   | { type: "goBack" }
+  // Training
+  | { type: "startCreate" }
+  | { type: "inputName"; name: string }
+  | { type: "pickRace"; race: RaceId }
+  | { type: "pickAlignment"; alignment: Alignment }
+  | { type: "attributesRolled"; attributes: Attributes; bonus: number }
+  | { type: "allocateBonus"; attribute: AttributeKey; delta: -1 | 1 }
+  | { type: "proceedToClass" }
+  | { type: "pickClass"; klass: ClassId }
+  | { type: "confirmCharacter" }
+  | { type: "cancelCreate" }
+  | { type: "inspectCharacter"; characterId: CharacterId }
+  | { type: "deleteCharacter"; characterId: CharacterId }
+  | { type: "confirmDelete" }
+  | { type: "cancelDelete" }
+  | { type: "closeInspect" }
+  // Tavern
+  | { type: "openAddMember" }
+  | { type: "addToParty"; characterId: CharacterId; slot: SlotIndex }
+  | { type: "removeFromParty"; slot: SlotIndex }
+  | { type: "inspectMember"; slot: SlotIndex }
+  | { type: "closeAddMember" }
+  | { type: "leaveTavern" }
+  // Boltac
+  | { type: "openBuy" }
+  | { type: "openSell" }
+  | { type: "pickBuyer"; characterId: CharacterId }
+  | { type: "buyItem"; itemId: ItemId }
+  | { type: "sellItem"; itemIndex: number }
+  | { type: "leaveBoltac" }
+  // Inn
+  | { type: "openInnGuest" }
+  | { type: "pickGuest"; characterId: CharacterId }
+  | { type: "restStables" }
+  | { type: "leaveInn" }
   // 非同期ライフサイクル (M5 で本格実装)
   | { type: "loadStarted"; slotId: SaveSlotId }
   | { type: "loadFailed"; reason: string };

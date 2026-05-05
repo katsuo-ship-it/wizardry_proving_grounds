@@ -1,4 +1,5 @@
 import type { DBSchema } from "idb";
+import type { Character } from "@/engine/state/types";
 
 export const DB_NAME = "wizardry-proving-grounds";
 export const DB_VERSION = 1;
@@ -17,12 +18,7 @@ export interface WizardryDB extends DBSchema {
   };
   character: {
     key: number;
-    value: {
-      id: number;
-      slotId: number;
-      name: string;
-      data: string;
-    };
+    value: Character;
     indexes: { "by-slotId": number };
   };
   settings: {
