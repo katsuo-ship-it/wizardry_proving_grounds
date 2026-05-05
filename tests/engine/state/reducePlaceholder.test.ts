@@ -4,10 +4,9 @@ import { describe, expect, it } from "vitest";
 
 describe("placeholder phases goBack routing", () => {
   it.each([
-    ["training", "edgeOfTown"],
+    // training と tavern は M3 で実画面化されたため除外
     ["utilities", "edgeOfTown"],
     ["maze", "edgeOfTown"],
-    ["tavern", "castle"],
     ["boltac", "castle"],
     ["temple", "castle"],
     ["inn", "castle"],

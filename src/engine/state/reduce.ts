@@ -1,6 +1,7 @@
 import { reduceCastle } from "./reduceCastle";
 import { reduceEdgeOfTown } from "./reduceEdgeOfTown";
 import { reducePlaceholder } from "./reducePlaceholder";
+import { reduceTavern } from "./reduceTavern";
 import { reduceTitle } from "./reduceTitle";
 import { reduceTraining } from "./reduceTraining";
 import type { GameEvent, GameState } from "./types";
@@ -15,9 +16,10 @@ export function reduce(state: GameState, event: GameEvent): GameState {
       return reduceCastle(state, event);
     case "training":
       return reduceTraining(state, event);
+    case "tavern":
+      return reduceTavern(state, event);
     case "utilities":
     case "maze":
-    case "tavern":
     case "boltac":
     case "temple":
     case "inn":

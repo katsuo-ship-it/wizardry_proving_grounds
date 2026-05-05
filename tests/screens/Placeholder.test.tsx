@@ -17,8 +17,7 @@ describe("placeholder screens render via App", () => {
   });
 
   it.each([
-    // training は M3 で実画面化済 (除外)
-    ["tavern", "Gilgamesh's Tavern", "Party formation"],
+    // training と tavern は M3 で実画面化済 (除外)
     ["boltac", "Boltac's Trading Post", "available in M3"],
     ["temple", "Temple of Cant", "Save feature"],
     ["inn", "Adventurer's Inn", "Stables rest"],
@@ -33,9 +32,9 @@ describe("placeholder screens render via App", () => {
     expect(screen.getByText(new RegExp(bodyContains))).toBeInTheDocument();
   });
 
-  it("Back button on Tavern transitions to Castle", () => {
+  it("Back button on Boltac (placeholder) transitions to Castle", () => {
     gameStore.setState({
-      state: { phase: "tavern", sub: { kind: "menu" }, party: EMPTY_PARTY },
+      state: { phase: "boltac", sub: { kind: "menu" }, party: EMPTY_PARTY },
     });
     render(<App />);
     fireEvent.click(screen.getByText(/Back/));
