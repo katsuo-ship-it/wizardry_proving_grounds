@@ -68,6 +68,7 @@ export type GameEvent =
   | { type: "openContinue" }
   | { type: "openSettings" }
   | { type: "closeSettings" }
+  | { type: "closeContinueMenu" }
   | { type: "changeLanguage"; lang: Lang }
   // Edge of Town
   | { type: "goToTraining" }

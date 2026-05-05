@@ -23,6 +23,12 @@ export function reduceTitle(state: GameState & { phase: "title" }, event: GameEv
       }
       return state;
 
+    case "closeContinueMenu":
+      if (sub.kind === "continueMenu") {
+        return { phase: "title", sub: { kind: "main" } };
+      }
+      return state;
+
     case "loadFailed":
       if (sub.kind === "loading") {
         return { phase: "title", sub: { kind: "loadError", reason: event.reason } };

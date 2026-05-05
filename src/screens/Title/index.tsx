@@ -1,6 +1,8 @@
+import type { TitleSubState } from "@/engine/state/types";
 import { useT } from "@/i18n/useT";
 import { gameStore, useGameStore } from "@/store/gameStore";
 import { Frame } from "@/ui/components/Frame";
+import { Menu } from "@/ui/components/Menu";
 import { Logo } from "./Logo";
 import "./Title.css";
 
@@ -8,7 +10,11 @@ const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"
   gameStore.getState().dispatch(e);
 
 export function Title() {
-  const sub = useGameStore((s) => (s.state.phase === "title" ? s.state.sub : null));
+  const sub = useGameStore((s) => {
+    const st = s.state;
+    return st.phase === "title" ? st.sub : null;
+  }) as TitleSubState | null;
+
   if (!sub) return null;
 
   switch (sub.kind) {
@@ -31,16 +37,26 @@ function TitleMain() {
     <div className="title-screen">
       <Logo />
       <p className="title-subtitle">{t("title.subtitle")}</p>
-      <div className="title-menu">
-        <button type="button" onClick={() => dispatch({ type: "startGame" })}>
-          {t("title.menu.newGame")}
-        </button>
-        <button type="button" onClick={() => dispatch({ type: "openContinue" })}>
-          {t("title.menu.continue")}
-        </button>
-        <button type="button" onClick={() => dispatch({ type: "openSettings" })}>
-          {t("title.menu.settings")}
-        </button>
+      <div className="title-main-menu">
+        <Menu
+          items={[
+            {
+              hotkey: "N",
+              label: t("title.menu.newGame"),
+              onSelect: () => dispatch({ type: "startGame" }),
+            },
+            {
+              hotkey: "C",
+              label: t("title.menu.continue"),
+              onSelect: () => dispatch({ type: "openContinue" }),
+            },
+            {
+              hotkey: "S",
+              label: t("title.menu.settings"),
+              onSelect: () => dispatch({ type: "openSettings" }),
+            },
+          ]}
+        />
       </div>
     </div>
   );
@@ -50,7 +66,7 @@ function TitleSettings() {
   const t = useT();
   const lang = useGameStore((s) => s.lang);
   return (
-    <div className="title-screen">
+    <div className="menu-screen">
       <Frame title={t("settings.title")}>
         <div className="settings-row">
           <span>{t("settings.language")}: </span>
@@ -69,13 +85,15 @@ function TitleSettings() {
             {t("settings.language.ja")}
           </button>
         </div>
-        <button
-          type="button"
-          className="settings-back"
-          onClick={() => dispatch({ type: "closeSettings" })}
-        >
-          {t("settings.back")}
-        </button>
+        <Menu
+          items={[
+            {
+              hotkey: "B",
+              label: t("settings.back"),
+              onSelect: () => dispatch({ type: "closeSettings" }),
+            },
+          ]}
+        />
       </Frame>
     </div>
   );
@@ -84,9 +102,18 @@ function TitleSettings() {
 function TitleContinue() {
   const t = useT();
   return (
-    <div className="title-screen">
+    <div className="menu-screen">
       <Frame title="CONTINUE">
         <p>{t("common.press.enter")}</p>
+        <Menu
+          items={[
+            {
+              hotkey: "B",
+              label: t("common.back"),
+              onSelect: () => dispatch({ type: "closeContinueMenu" }),
+            },
+          ]}
+        />
       </Frame>
     </div>
   );

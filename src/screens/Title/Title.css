@@ -13,31 +13,9 @@
   color: var(--color-accent);
 }
 
-.title-menu {
-  display: flex;
-  flex-direction: column;
-  gap: calc(1 * var(--vp));
+.title-main-menu {
   margin-top: calc(4 * var(--vp));
-}
-
-.title-menu button,
-.settings-row button,
-.settings-back {
-  background: var(--color-bg);
-  color: var(--color-fg);
-  border: var(--vp) solid var(--color-fg);
-  padding: calc(1 * var(--vp)) calc(4 * var(--vp));
-  font-family: inherit;
-  font-size: var(--font-size-glyph);
-  cursor: pointer;
-}
-
-.title-menu button:hover,
-.title-menu button:focus-visible,
-.settings-back:hover,
-.settings-back:focus-visible {
-  background: var(--color-fg);
-  color: var(--color-bg);
+  min-width: calc(40 * var(--vp));
 }
 
 .settings-row {
@@ -47,14 +25,18 @@
   margin-bottom: calc(2 * var(--vp));
 }
 
+.settings-row button {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border: var(--vp) solid var(--color-fg);
+  padding: calc(1 * var(--vp)) calc(2 * var(--vp));
+  font-family: inherit;
+  font-size: var(--font-size-glyph);
+  cursor: pointer;
+}
+
 .settings-row button[disabled] {
   background: var(--color-fg);
   color: var(--color-bg);
   cursor: default;
-}
-
-.settings-back {
-  display: block;
-  width: 100%;
-  margin-top: calc(2 * var(--vp));
 }

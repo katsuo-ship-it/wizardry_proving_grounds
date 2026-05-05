@@ -32,7 +32,7 @@ describe("<Title>", () => {
     render(<Title />);
     fireEvent.click(screen.getByText("Settings"));
     fireEvent.click(screen.getByText("日本語"));
-    fireEvent.click(screen.getByText("タイトルに もどる"));
+    fireEvent.click(screen.getByText(/タイトルに もどる/));
     expect(screen.getByText("はじめから")).toBeInTheDocument();
   });
 });
