@@ -15,11 +15,10 @@
 ## File Structure
 
 ### Phase A: 共通基盤 (Menu component + types 拡張)
-- Create: `src/ui/components/Menu.tsx` — 再利用可能な縦並びメニュー
+- Create: `src/ui/components/Menu.tsx` — 再利用可能な縦並びメニュー (Frame は呼び出し側で付ける)
 - Create: `src/ui/components/Menu.css`
 - Test: `tests/ui/components/Menu.test.tsx`
 - Modify: `src/engine/state/types.ts` — phases, sub-states, events 追加
-- Modify: `src/store/internalEventTypes.ts` — 新規内部イベント追加
 
 ### Phase B: Edge of Town
 - Create: `src/engine/state/reduceEdgeOfTown.ts`
@@ -130,7 +129,7 @@ export type GameState =
 export type GameEvent =
   // ... 既存
   // Title
-  | { type: 'startGame' }                              // 既存だが M2 で実装
+  | { type: 'startGame' }                              // 既存 (M1 では no-op、M2 で実装)
   // Edge of Town
   | { type: 'goToTraining' }
   | { type: 'goToMaze' }
@@ -146,8 +145,8 @@ export type GameEvent =
   | { type: 'enterInn' }
   | { type: 'leaveCastle' }                            // → Edge of Town
   // Placeholder phases (Training, Utilities, Tavern, Boltac, Temple, Inn, Maze)
-  | { type: 'goBack' }                                 // 各 placeholder からの汎用「戻る」
-  // ... 既存の loadStarted/loadFailed
+  | { type: 'goBack' };                                // 各 placeholder からの汎用「戻る」
+  // 既存の loadFailed は M1 から維持
 ```
 
 > 注: 既存の `loadStarted` / `loadFailed` は維持。`startGame` は型としては M1 から存在したが、M1 では reducer で no-op だった。M2 で実装する。
@@ -186,16 +185,16 @@ describe('<Menu>', () => {
   it('renders all items with hotkey labels', () => {
     render(
       <Menu
-        title="EDGE OF TOWN"
         items={[
           { hotkey: 'T', label: 'Training Grounds', onSelect: () => {} },
           { hotkey: 'M', label: 'Maze', onSelect: () => {} },
         ]}
       />,
     );
-    expect(screen.getByText('EDGE OF TOWN')).toBeInTheDocument();
     expect(screen.getByText(/Training Grounds/)).toBeInTheDocument();
     expect(screen.getByText(/Maze/)).toBeInTheDocument();
+    expect(screen.getByText('[T]')).toBeInTheDocument();
+    expect(screen.getByText('[M]')).toBeInTheDocument();
   });
 
   it('invokes onSelect when item clicked', () => {
@@ -238,7 +237,6 @@ pnpm test Menu
 ```typescript
 // src/ui/components/Menu.tsx
 import { useEffect } from 'react';
-import { Frame } from './Frame';
 import './Menu.css';
 
 export interface MenuItem {
@@ -249,11 +247,20 @@ export interface MenuItem {
 }
 
 interface MenuProps {
-  title?: string;
   items: MenuItem[];
 }
 
-export function Menu({ title, items }: MenuProps) {
+/**
+ * 縦並びメニュー (キー入力で選択可能)。
+ *
+ * 注: window へグローバルに keydown を bind するため、画面上で同時に
+ * 複数の Menu インスタンスをマウントするとホットキーが重複発火する。
+ * 一度に 1 つの Menu のみ表示する想定 (現在の使い方では問題なし)。
+ *
+ * Frame は付与しない。タイトル付きで枠を出したい場合は呼び出し側で
+ * <Frame title="..."><Menu items={...} /></Frame> のようにラップする。
+ */
+export function Menu({ items }: MenuProps) {
   useEffect(() => {
     function handler(e: KeyboardEvent): void {
       const lower = e.key.toLowerCase();
@@ -268,25 +275,21 @@ export function Menu({ title, items }: MenuProps) {
   }, [items]);
 
   return (
-    <div className="menu-screen">
-      <Frame title={title}>
-        <ul className="menu-list">
-          {items.map((item) => (
-            <li key={item.hotkey}>
-              <button
-                type="button"
-                className="menu-item"
-                onClick={item.onSelect}
-                disabled={item.disabled ?? false}
-              >
-                <span className="menu-hotkey">[{item.hotkey}]</span>
-                <span className="menu-label">{item.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </Frame>
-    </div>
+    <ul className="menu-list">
+      {items.map((item) => (
+        <li key={item.hotkey}>
+          <button
+            type="button"
+            className="menu-item"
+            onClick={item.onSelect}
+            disabled={item.disabled ?? false}
+          >
+            <span className="menu-hotkey">[{item.hotkey}]</span>
+            <span className="menu-label">{item.label}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 ```
@@ -295,6 +298,7 @@ export function Menu({ title, items }: MenuProps) {
 
 ```css
 /* src/ui/components/Menu.css */
+/* .menu-screen は呼び出し側でラップする際に使う共通レイアウト用 */
 .menu-screen {
   display: flex;
   flex-direction: column;
@@ -631,16 +635,19 @@ export function EdgeOfTown() {
 function EdgeOfTownMenu() {
   const t = useT();
   return (
-    <Menu
-      title={t('edgeOfTown.title')}
-      items={[
-        { hotkey: 'T', label: t('edgeOfTown.menu.training'), onSelect: () => dispatch({ type: 'goToTraining' }) },
-        { hotkey: 'M', label: t('edgeOfTown.menu.maze'),     onSelect: () => dispatch({ type: 'goToMaze' }) },
-        { hotkey: 'C', label: t('edgeOfTown.menu.castle'),   onSelect: () => dispatch({ type: 'goToCastle' }) },
-        { hotkey: 'U', label: t('edgeOfTown.menu.utilities'),onSelect: () => dispatch({ type: 'goToUtilities' }) },
-        { hotkey: 'L', label: t('edgeOfTown.menu.leaveGame'),onSelect: () => dispatch({ type: 'leaveGame' }) },
-      ]}
-    />
+    <div className="menu-screen">
+      <Frame title={t('edgeOfTown.title')}>
+        <Menu
+          items={[
+            { hotkey: 'T', label: t('edgeOfTown.menu.training'), onSelect: () => dispatch({ type: 'goToTraining' }) },
+            { hotkey: 'M', label: t('edgeOfTown.menu.maze'),     onSelect: () => dispatch({ type: 'goToMaze' }) },
+            { hotkey: 'C', label: t('edgeOfTown.menu.castle'),   onSelect: () => dispatch({ type: 'goToCastle' }) },
+            { hotkey: 'U', label: t('edgeOfTown.menu.utilities'),onSelect: () => dispatch({ type: 'goToUtilities' }) },
+            { hotkey: 'L', label: t('edgeOfTown.menu.leaveGame'),onSelect: () => dispatch({ type: 'leaveGame' }) },
+          ]}
+        />
+      </Frame>
+    </div>
   );
 }
 
@@ -889,6 +896,7 @@ git commit -m "feat(engine): implement Castle hub reducer (5 sub-locations)"
 // src/screens/Castle/index.tsx
 import { useT } from '@/i18n/useT';
 import { gameStore } from '@/store/gameStore';
+import { Frame } from '@/ui/components/Frame';
 import { Menu } from '@/ui/components/Menu';
 
 const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>['dispatch']>[0]) =>
@@ -897,16 +905,19 @@ const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>['dispatch'
 export function Castle() {
   const t = useT();
   return (
-    <Menu
-      title={t('castle.title')}
-      items={[
-        { hotkey: 'G', label: t('castle.menu.tavern'),     onSelect: () => dispatch({ type: 'enterTavern' }) },
-        { hotkey: 'B', label: t('castle.menu.boltac'),     onSelect: () => dispatch({ type: 'enterBoltac' }) },
-        { hotkey: 'T', label: t('castle.menu.temple'),     onSelect: () => dispatch({ type: 'enterTemple' }) },
-        { hotkey: 'A', label: t('castle.menu.inn'),        onSelect: () => dispatch({ type: 'enterInn' }) },
-        { hotkey: 'E', label: t('castle.menu.edgeOfTown'), onSelect: () => dispatch({ type: 'leaveCastle' }) },
-      ]}
-    />
+    <div className="menu-screen">
+      <Frame title={t('castle.title')}>
+        <Menu
+          items={[
+            { hotkey: 'G', label: t('castle.menu.tavern'),     onSelect: () => dispatch({ type: 'enterTavern' }) },
+            { hotkey: 'B', label: t('castle.menu.boltac'),     onSelect: () => dispatch({ type: 'enterBoltac' }) },
+            { hotkey: 'T', label: t('castle.menu.temple'),     onSelect: () => dispatch({ type: 'enterTemple' }) },
+            { hotkey: 'A', label: t('castle.menu.inn'),        onSelect: () => dispatch({ type: 'enterInn' }) },
+            { hotkey: 'E', label: t('castle.menu.edgeOfTown'), onSelect: () => dispatch({ type: 'leaveCastle' }) },
+          ]}
+        />
+      </Frame>
+    </div>
   );
 }
 ```
@@ -1002,14 +1013,15 @@ export function Placeholder({ titleKey, bodyKey, backLabelKey }: PlaceholderProp
 // src/engine/state/reducePlaceholder.ts
 import type { GameEvent, GameState } from './types';
 
+type PlaceholderPhase = 'training' | 'utilities' | 'maze' | 'tavern' | 'boltac' | 'temple' | 'inn';
+
 /**
- * 各 placeholder phase (training/utilities/tavern/boltac/temple/inn/maze) で
- * 'goBack' を受け取ったときの戻り先を定義する。
+ * 各 placeholder phase で 'goBack' を受け取ったときの戻り先。
  *
  * - training/utilities/maze は Edge of Town 配下 → edgeOfTown へ
  * - tavern/boltac/temple/inn は Castle 配下 → castle へ
  */
-const BACK_TARGET: Record<string, 'edgeOfTown' | 'castle'> = {
+const BACK_TARGET: Record<PlaceholderPhase, 'edgeOfTown' | 'castle'> = {
   training: 'edgeOfTown',
   utilities: 'edgeOfTown',
   maze: 'edgeOfTown',
@@ -1020,17 +1032,12 @@ const BACK_TARGET: Record<string, 'edgeOfTown' | 'castle'> = {
 };
 
 export function reducePlaceholder(
-  state: Extract<
-    GameState,
-    { phase: 'training' | 'utilities' | 'maze' | 'tavern' | 'boltac' | 'temple' | 'inn' }
-  >,
+  state: Extract<GameState, { phase: PlaceholderPhase }>,
   event: GameEvent,
 ): GameState {
   if (event.type === 'goBack') {
     const target = BACK_TARGET[state.phase];
-    if (target === 'edgeOfTown' || target === 'castle') {
-      return { phase: target, sub: { kind: 'menu' }, party: state.party };
-    }
+    return { phase: target, sub: { kind: 'menu' }, party: state.party };
   }
   return state;
 }
@@ -1200,6 +1207,7 @@ describe('placeholder screens render via App', () => {
   beforeEach(() => {
     cleanup();
     gameStore.setState({
+      state: { phase: 'title', sub: { kind: 'main' } },
       lang: 'en',
       isAnimating: false,
       isBusy: false,
