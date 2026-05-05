@@ -578,7 +578,6 @@ GameState の training entry を更新:
 export type TavernSubState =
   | { kind: "menu" }
   | { kind: "addMember"; rosterIds: CharacterId[] }
-  | { kind: "removeMember"; slot: SlotIndex }
   | { kind: "inspecting"; slot: SlotIndex };
 
 export type BoltacSubState =
@@ -608,8 +607,9 @@ Training・Tavern・Boltac・Inn の操作イベントを追加:
 | { type: "inputName"; name: string }
 | { type: "pickRace"; race: RaceId }
 | { type: "pickAlignment"; alignment: Alignment }
-| { type: "rollAttributes" }
+| { type: "attributesRolled"; attributes: Attributes; bonus: number }   // UI で roll 計算後に発火
 | { type: "allocateBonus"; attribute: AttributeKey; delta: -1 | 1 }
+| { type: "proceedToClass" }                                            // bonus 残 0 で次画面へ
 | { type: "pickClass"; klass: ClassId }
 | { type: "confirmCharacter" }
 | { type: "cancelCreate" }
@@ -1142,7 +1142,7 @@ export function makeCharacterFromDraft(
       exp: 0,
       gold: 100, // 初期所持金 100 GP (Wizardry オリジナル)
       ac: 10, // 装備なし AC
-      age: 18 + Math.floor(Math.random() * 4), // 18..21 歳でランダムスタート (Pascal 確認待ち)
+      age: 18, // 暫定: 18 歳固定。Chapter 2 で Inn 休息や蘇生時の年齢加算とともに正式化
       restCount: 0,
     },
     inventory: [],
@@ -1364,16 +1364,21 @@ function reduceCreating(
       return state;
 
     case "rollAttributes":
-      if (event.type === "rollAttributes") {
-        // 決定論的にしたい場合は store 側で seed を渡す。M3 ではセッションごとにランダム seed
-        const seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
-        const draft = startDraft(
-          { name: sub.draft.name, race: sub.draft.race, alignment: sub.draft.alignment },
-          mulberry32(seed),
-        );
+      // 純関数を保つため、roll 結果は UI 側で計算して event に乗せる。
+      // event 名: "attributesRolled" (新設、bonus と attributes を payload で受け取る)
+      if (event.type === "attributesRolled") {
         return {
           ...state,
-          sub: { kind: "creating", step: "allocateBonus", draft },
+          sub: {
+            kind: "creating",
+            step: "allocateBonus",
+            draft: {
+              ...sub.draft,
+              baseAttributes: event.attributes,
+              attributes: event.attributes,
+              bonusPointsRemaining: event.bonus,
+            },
+          },
         };
       }
       return state;
@@ -1383,15 +1388,28 @@ function reduceCreating(
         const next = applyBonus(sub.draft, event.attribute, event.delta);
         return { ...state, sub: { kind: "creating", step: "allocateBonus", draft: next } };
       }
-      if (event.type === "rollAttributes") {
+      if (event.type === "attributesRolled") {
         // 振り直し
-        const seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
-        const draft = rerollBonus(sub.draft, mulberry32(seed));
-        return { ...state, sub: { kind: "creating", step: "allocateBonus", draft } };
+        return {
+          ...state,
+          sub: {
+            kind: "creating",
+            step: "allocateBonus",
+            draft: {
+              ...sub.draft,
+              attributes: event.attributes,
+              bonusPointsRemaining: event.bonus,
+            },
+          },
+        };
       }
+      if (event.type === "proceedToClass" && sub.draft.bonusPointsRemaining === 0) {
+        return { ...state, sub: { kind: "creating", step: "pickClass", draft: sub.draft } };
+      }
+      return state;
+
+    case "pickClass":
       if (event.type === "pickClass") {
-        // すぐに class へ進むには bonus 残 0 が必要
-        if (sub.draft.bonusPointsRemaining > 0) return state;
         const eligible = eligibleClasses(sub.draft.attributes, sub.draft.alignment);
         if (!eligible.includes(event.klass)) return state;
         return {
@@ -1403,11 +1421,6 @@ function reduceCreating(
           },
         };
       }
-      // bonus 残 0 になったら自動で pickClass 段階へ進む — UI 側で `pickClass` を発火させる方式に統一
-      return state;
-
-    case "pickClass":
-      // (allocateBonus → confirm の遷移をひとまとめにしたので未使用)
       return state;
 
     case "confirm":
@@ -1508,14 +1521,11 @@ export function Training() {
           return <CreateAlignment draft={sub.draft} />;
         case "rollAttributes":
         case "allocateBonus":
-          return <CreateAttributes draft={sub.draft} />;
+          return <CreateAttributes draft={sub.draft} step={sub.step} />;
         case "pickClass":
+          return <CreateClass draft={sub.draft} />;
         case "confirm":
-          return sub.draft.selectedClass ? (
-            <CreateConfirm draft={sub.draft} />
-          ) : (
-            <CreateClass draft={sub.draft} />
-          );
+          return <CreateConfirm draft={sub.draft} />;
       }
   }
 }
@@ -1790,9 +1800,14 @@ export function CreateAlignment({ draft: _draft }: { draft: CharacterDraft }) {
 
 - [ ] **Step D6.1: 実装**
 
+`step` を prop として受け取り、`rollAttributes` ステップでは Roll ボタン、`allocateBonus` では振り分け UI を表示する (reference equality バグ回避)。Roll ボタン押下時は **UI 側で mulberry32 に Date.now をシードして bonus を算出**し、`attributesRolled` event を dispatch する (reducer は純関数のまま)。
+
 ```typescript
 // src/screens/Training/CreateAttributes.tsx
-import type { AttributeKey, CharacterDraft } from "@/engine/state/types";
+import { RACES } from "@/engine/data/races";
+import { rollBonus } from "@/engine/rules/character";
+import { mulberry32 } from "@/engine/rng/mulberry32";
+import type { AttributeKey, CharacterDraft, CreatingStep } from "@/engine/state/types";
 import { useT } from "@/i18n/useT";
 import { gameStore } from "@/store/gameStore";
 import { Frame } from "@/ui/components/Frame";
@@ -1803,11 +1818,20 @@ const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"
 
 const ATTR_KEYS: AttributeKey[] = ["str", "iq", "pie", "vit", "agi", "luk"];
 
-export function CreateAttributes({ draft }: { draft: CharacterDraft }) {
-  const t = useT();
-  const isInitial = draft.bonusPointsRemaining === 0 && draft.attributes === draft.baseAttributes;
+function freshSeed(): number {
+  return ((Date.now() & 0xffffffff) ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+}
 
-  if (isInitial) {
+function rollFor(draft: CharacterDraft): { attributes: typeof draft.baseAttributes; bonus: number } {
+  const rng = mulberry32(freshSeed());
+  const base = RACES[draft.race].base;
+  return { attributes: { ...base }, bonus: rollBonus(rng) };
+}
+
+export function CreateAttributes({ draft, step }: { draft: CharacterDraft; step: CreatingStep }) {
+  const t = useT();
+
+  if (step === "rollAttributes") {
     return (
       <div className="menu-screen">
         <Frame title={t("training.create.roll.title")}>
@@ -1817,7 +1841,10 @@ export function CreateAttributes({ draft }: { draft: CharacterDraft }) {
               {
                 hotkey: "R",
                 label: t("training.create.roll.action"),
-                onSelect: () => dispatch({ type: "rollAttributes" }),
+                onSelect: () => {
+                  const { attributes, bonus } = rollFor(draft);
+                  dispatch({ type: "attributesRolled", attributes, bonus });
+                },
               },
               {
                 hotkey: "X",
@@ -1868,7 +1895,10 @@ export function CreateAttributes({ draft }: { draft: CharacterDraft }) {
             {
               hotkey: "R",
               label: t("training.create.allocate.reroll"),
-              onSelect: () => dispatch({ type: "rollAttributes" }),
+              onSelect: () => {
+                const { attributes, bonus } = rollFor(draft);
+                dispatch({ type: "attributesRolled", attributes, bonus });
+              },
             },
             {
               hotkey: "O",
@@ -1989,79 +2019,29 @@ export function CreateClass({ draft }: { draft: CharacterDraft }) {
 }
 ```
 
-### Task D8: CreateConfirm + 副作用 (db.addCharacter)
+### Task D8: CreateConfirm (UI 直接 db 呼出)
 
 **Files:**
 - Create: `src/screens/Training/CreateConfirm.tsx`
-- Modify: `src/engine/effects/orchestrator.ts` — confirmCharacter 用エフェクト追加
-- Modify: `src/engine/state/types.ts` — `Effect` union 拡張
 
-- [ ] **Step D8.1: types.ts の Effect を拡張**
-
-```typescript
-export type Effect =
-  | { type: "load"; slotId: SaveSlotId }
-  | { type: "addCharacter"; draft: CharacterDraft; slotId: number };
-```
-
-- [ ] **Step D8.2: bindEffect / runEffect の対応追加**
-
-`src/engine/effects/orchestrator.ts`:
-
-```typescript
-import { makeCharacterFromDraft } from "@/engine/rules/character";
-import { db } from "@/persist/db";
-// ...
-export function bindEffect(prev: GameState, next: GameState): Effect | null {
-  // 既存 loading
-  // ...
-
-  // training: confirm step を抜けて menu に戻った瞬間 (= confirmCharacter 後)
-  if (
-    prev.phase === "training" &&
-    prev.sub.kind === "creating" &&
-    prev.sub.step === "confirm" &&
-    next.phase === "training" &&
-    next.sub.kind === "menu"
-  ) {
-    return {
-      type: "addCharacter",
-      draft: prev.sub.draft,
-      slotId: 1, // M3 では固定 (M5 で動的)
-    };
-  }
-  return null;
-}
-
-export async function runEffect(effect: Effect, dispatch: (e: GameEvent) => void): Promise<void> {
-  if (effect.type === "load") {
-    dispatch({ type: "loadFailed", reason: "load not implemented yet (M5)" });
-    return;
-  }
-  if (effect.type === "addCharacter") {
-    try {
-      const c = makeCharacterFromDraft(effect.draft, effect.slotId, Date.now());
-      await db.addCharacter(c);
-      // success: 何もしない (UI は menu に戻り、useEffect で再 fetch する)
-    } catch (err) {
-      console.error("addCharacter failed", err);
-    }
-  }
-}
-```
+> **設計判断**: bindEffect は state diff ベースで `confirmCharacter` (Yes) と `cancelCreate` (No) のいずれも `step: confirm → menu` 遷移になり区別できない。**addCharacter は UI 側で直接 db を呼ぶ** (DeleteConfirm/Boltac と同じパターン)。Effect.addCharacter は導入しない。
 
 - [ ] **Step D8.3: CreateConfirm.tsx**
 
 ```typescript
 // src/screens/Training/CreateConfirm.tsx
+import { makeCharacterFromDraft } from "@/engine/rules/character";
 import type { CharacterDraft } from "@/engine/state/types";
 import { useT } from "@/i18n/useT";
+import { db } from "@/persist/db";
 import { gameStore } from "@/store/gameStore";
 import { Frame } from "@/ui/components/Frame";
 import { Menu } from "@/ui/components/Menu";
 
 const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
   gameStore.getState().dispatch(e);
+
+const SLOT_ID = 1; // M3 では固定 (M5 で動的)
 
 export function CreateConfirm({ draft }: { draft: CharacterDraft }) {
   const t = useT();
@@ -2088,7 +2068,16 @@ export function CreateConfirm({ draft }: { draft: CharacterDraft }) {
             {
               hotkey: "Y",
               label: t("common.yes"),
-              onSelect: () => dispatch({ type: "confirmCharacter" }),
+              onSelect: async () => {
+                try {
+                  const c = makeCharacterFromDraft(draft, SLOT_ID, Date.now());
+                  await db.addCharacter(c);
+                  dispatch({ type: "confirmCharacter" });
+                } catch (err) {
+                  console.error("addCharacter failed", err);
+                  dispatch({ type: "cancelCreate" });
+                }
+              },
             },
             {
               hotkey: "N",
@@ -2327,7 +2316,7 @@ describe("tavern reducer", () => {
     });
   });
 
-  it("addToParty places character at given slot", () => {
+  it("addToParty places character at given slot and returns to menu", () => {
     const inAdd: GameState = {
       ...init,
       sub: { kind: "addMember", rosterIds: [10, 11] },
@@ -2335,6 +2324,7 @@ describe("tavern reducer", () => {
     const next = reduce(inAdd, { type: "addToParty", characterId: 10, slot: 0 });
     if (next.phase !== "tavern") throw new Error();
     expect(next.party.members[0]).toBe(10);
+    expect(next.sub).toEqual({ kind: "menu" });
   });
 
   it("removeFromParty clears slot", () => {
@@ -2468,7 +2458,7 @@ export function Tavern() {
 ```typescript
 // src/screens/Tavern/TavernMenu.tsx
 import { useEffect, useState } from "react";
-import type { Character } from "@/engine/state/types";
+import type { Character, SlotIndex } from "@/engine/state/types";
 import { useT } from "@/i18n/useT";
 import { db } from "@/persist/db";
 import { gameStore, useGameStore } from "@/store/gameStore";
@@ -2505,7 +2495,7 @@ export function TavernMenu() {
         {
           hotkey: String(slot + 1),
           label: `${slot + 1}: ${c.name} L${c.status.level} ${c.race} ${c.class} (R)emove`,
-          onSelect: () => dispatch({ type: "removeFromParty", slot: slot as 0 }),
+          onSelect: () => dispatch({ type: "removeFromParty", slot: slot as SlotIndex }),
         },
       ];
     }),
@@ -3244,21 +3234,148 @@ export function Inn() {
 }
 ```
 
-- [ ] **Step G2.2: InnMenu / PickGuest / RestStables 実装**
-
-InnMenu と PickGuest は他施設と同様のパターンなので、構造のみ抜粋:
+- [ ] **Step G2.2: InnMenu.tsx**
 
 ```typescript
-// InnMenu: "Pick a guest" / "Leave"
-// PickGuest: パーティ from listCharacters → pickGuest event 発火
-// RestStables: Stables (free, time only) ボタン + Cot/Economy/Merchant/Royal Suite (disabled, "Available in Chapter 2")
-//   restStables 選択時:
-//     1. db.getCharacter → age++
-//     2. db.updateCharacter
-//     3. dispatch({ type: 'restStables' })
+// src/screens/Inn/InnMenu.tsx
+import { useT } from "@/i18n/useT";
+import { gameStore } from "@/store/gameStore";
+import { Frame } from "@/ui/components/Frame";
+import { Menu } from "@/ui/components/Menu";
+
+const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
+  gameStore.getState().dispatch(e);
+
+export function InnMenu() {
+  const t = useT();
+  return (
+    <div className="menu-screen">
+      <Frame title={t("inn.title")}>
+        <Menu
+          items={[
+            { hotkey: "S", label: t("inn.menu.stay"), onSelect: () => dispatch({ type: "openInnGuest" }) },
+            { hotkey: "B", label: t("common.back"), onSelect: () => dispatch({ type: "leaveInn" }) },
+          ]}
+        />
+      </Frame>
+    </div>
+  );
+}
 ```
 
-(具体実装は Phase E/F のパターンを踏襲。コード量を抑えるため省略 — 実装担当が同パターンで埋める)
+- [ ] **Step G2.3: PickGuest.tsx**
+
+```typescript
+// src/screens/Inn/PickGuest.tsx
+import { useEffect, useState } from "react";
+import type { Character } from "@/engine/state/types";
+import { useT } from "@/i18n/useT";
+import { db } from "@/persist/db";
+import { gameStore, useGameStore } from "@/store/gameStore";
+import { Frame } from "@/ui/components/Frame";
+import { Menu } from "@/ui/components/Menu";
+
+const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
+  gameStore.getState().dispatch(e);
+
+export function PickGuest() {
+  const t = useT();
+  const party = useGameStore((s) => (s.state.phase === "inn" ? s.state.party : null));
+  const [chars, setChars] = useState<Character[]>([]);
+
+  useEffect(() => {
+    db.listCharacters(1).then(setChars);
+  }, []);
+
+  if (!party) return null;
+  const inParty = chars.filter((c) => party.members.includes(c.id));
+
+  if (inParty.length === 0) {
+    return (
+      <div className="menu-screen">
+        <Frame title={t("inn.pickGuest.title")}>
+          <p>{t("inn.pickGuest.partyEmpty")}</p>
+          <Menu items={[{ hotkey: "B", label: t("common.back"), onSelect: () => dispatch({ type: "leaveInn" }) }]} />
+        </Frame>
+      </div>
+    );
+  }
+
+  return (
+    <div className="menu-screen">
+      <Frame title={t("inn.pickGuest.title")}>
+        <Menu
+          items={[
+            ...inParty.map((c, i) => ({
+              hotkey: String(i + 1),
+              label: `${c.name}  HP ${c.status.hp}/${c.status.hpMax}`,
+              onSelect: () => dispatch({ type: "pickGuest", characterId: c.id }),
+            })),
+            { hotkey: "B", label: t("common.back"), onSelect: () => dispatch({ type: "leaveInn" }) },
+          ]}
+        />
+      </Frame>
+    </div>
+  );
+}
+```
+
+- [ ] **Step G2.4: RestStables.tsx**
+
+```typescript
+// src/screens/Inn/RestStables.tsx
+import { useEffect, useState } from "react";
+import type { Character } from "@/engine/state/types";
+import { useT } from "@/i18n/useT";
+import { db } from "@/persist/db";
+import { gameStore } from "@/store/gameStore";
+import { Frame } from "@/ui/components/Frame";
+import { Menu } from "@/ui/components/Menu";
+
+const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
+  gameStore.getState().dispatch(e);
+
+export function RestStables({ guest }: { guest: number }) {
+  const t = useT();
+  const [c, setC] = useState<Character | undefined>();
+  useEffect(() => {
+    db.getCharacter(guest).then(setC);
+  }, [guest]);
+  if (!c) return null;
+
+  return (
+    <div className="menu-screen">
+      <Frame title={t("inn.rest.title", { name: c.name })}>
+        <p>{t("inn.rest.body")}</p>
+        <Menu
+          items={[
+            {
+              hotkey: "S",
+              label: t("inn.rest.stables"),  // "Stables (Free) — time only"
+              onSelect: async () => {
+                // 1981 原典: Stables は HP 回復なし、年齢のみ加算 (Chapter 2 で年齢加算判定が意味を持つ)
+                const updated: Character = {
+                  ...c,
+                  status: { ...c.status, restCount: c.status.restCount + 1 },
+                };
+                await db.updateCharacter(updated);
+                dispatch({ type: "restStables" });
+              },
+            },
+            { hotkey: "C", label: t("inn.rest.cot"),     onSelect: () => {}, disabled: true },
+            { hotkey: "E", label: t("inn.rest.economy"), onSelect: () => {}, disabled: true },
+            { hotkey: "M", label: t("inn.rest.merchant"), onSelect: () => {}, disabled: true },
+            { hotkey: "R", label: t("inn.rest.royal"),   onSelect: () => {}, disabled: true },
+            { hotkey: "B", label: t("common.back"),      onSelect: () => dispatch({ type: "leaveInn" }) },
+          ]}
+        />
+      </Frame>
+    </div>
+  );
+}
+```
+
+> 注: Stables は restCount を +1 するのみで HP 回復なし。Cot 以降は **Chapter 2 で経験値・レベルアップと一緒に実装** するため M3 では disabled で並べておく (UI 上に存在を示しておく)。
 
 - [ ] **Step G2.3: コミット**
 
