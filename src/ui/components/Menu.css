@@ -1,0 +1,47 @@
+/* .menu-screen は呼び出し側でラップする際に使う共通レイアウト用 */
+.menu-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--vp));
+  width: 100%;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border: var(--vp) solid transparent;
+  padding: calc(1 * var(--vp)) calc(2 * var(--vp));
+  font-family: inherit;
+  font-size: var(--font-size-glyph);
+  cursor: pointer;
+  text-align: left;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  border-color: var(--color-fg);
+}
+
+.menu-item[disabled] {
+  color: #666;
+  cursor: default;
+}
+
+.menu-hotkey {
+  color: var(--color-accent);
+}
+
+.menu-label {
+  flex: 1;
+}

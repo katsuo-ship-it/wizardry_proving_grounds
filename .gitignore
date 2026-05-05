@@ -12,3 +12,5 @@ vite.config.js
 vitest.config.d.ts
 vitest.config.js
 *.tsbuildinfo
+
+.vercel
