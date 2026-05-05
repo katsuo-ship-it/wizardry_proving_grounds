@@ -65,28 +65,23 @@ function TitleMain() {
 function TitleSettings() {
   const t = useT();
   const lang = useGameStore((s) => s.lang);
+  const mark = (active: boolean) => (active ? "* " : "  ");
   return (
     <div className="menu-screen">
       <Frame title={t("settings.title")}>
-        <div className="settings-row">
-          <span>{t("settings.language")}: </span>
-          <button
-            type="button"
-            disabled={lang === "en"}
-            onClick={() => dispatch({ type: "changeLanguage", lang: "en" })}
-          >
-            {t("settings.language.en")}
-          </button>
-          <button
-            type="button"
-            disabled={lang === "ja"}
-            onClick={() => dispatch({ type: "changeLanguage", lang: "ja" })}
-          >
-            {t("settings.language.ja")}
-          </button>
-        </div>
+        <p className="settings-heading">{t("settings.language")}</p>
         <Menu
           items={[
+            {
+              hotkey: "E",
+              label: `${mark(lang === "en")}${t("settings.language.en")}`,
+              onSelect: () => dispatch({ type: "changeLanguage", lang: "en" }),
+            },
+            {
+              hotkey: "J",
+              label: `${mark(lang === "ja")}${t("settings.language.ja")}`,
+              onSelect: () => dispatch({ type: "changeLanguage", lang: "ja" }),
+            },
             {
               hotkey: "B",
               label: t("settings.back"),

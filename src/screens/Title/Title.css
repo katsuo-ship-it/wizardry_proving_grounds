@@ -18,25 +18,8 @@
   min-width: calc(40 * var(--vp));
 }
 
-.settings-row {
-  display: flex;
-  align-items: center;
-  gap: calc(1 * var(--vp));
-  margin-bottom: calc(2 * var(--vp));
-}
-
-.settings-row button {
-  background: var(--color-bg);
-  color: var(--color-fg);
-  border: var(--vp) solid var(--color-fg);
-  padding: calc(1 * var(--vp)) calc(2 * var(--vp));
-  font-family: inherit;
+.settings-heading {
+  margin: 0 0 calc(1 * var(--vp)) 0;
+  color: var(--color-accent);
   font-size: var(--font-size-glyph);
-  cursor: pointer;
-}
-
-.settings-row button[disabled] {
-  background: var(--color-fg);
-  color: var(--color-bg);
-  cursor: default;
 }
