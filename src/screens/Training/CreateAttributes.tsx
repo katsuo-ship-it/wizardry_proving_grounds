@@ -65,18 +65,18 @@ export function CreateAttributes({
     <div className="menu-screen">
       <Frame title={t("training.create.allocate.title")}>
         <p>{t("training.create.allocate.remaining", { n: draft.bonusPointsRemaining })}</p>
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <ul className="attribute-list">
           {ATTR_KEYS.map((k) => (
             <li key={k} className="attribute-row">
-              <span style={{ width: "calc(6 * var(--vp))" }}>{t(`attribute.${k}`)}</span>
+              <span className="attribute-name">{t(`attribute.${k}`)}</span>
               <button
                 type="button"
                 onClick={() => dispatch({ type: "allocateBonus", attribute: k, delta: -1 })}
               >
                 -
               </button>
-              <span style={{ width: "calc(3 * var(--vp))", textAlign: "center" }}>
-                {draft.attributes[k]}
+              <span className="attribute-value">
+                {String(draft.attributes[k]).padStart(2, " ")}
               </span>
               <button
                 type="button"

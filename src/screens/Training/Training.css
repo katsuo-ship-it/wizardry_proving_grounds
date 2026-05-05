@@ -8,11 +8,31 @@
   width: calc(20 * var(--vp));
 }
 
+.attribute-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .attribute-row {
   display: flex;
   align-items: center;
   gap: calc(2 * var(--vp));
   font-size: var(--font-size-glyph);
+  margin-bottom: calc(1 * var(--vp));
+}
+
+.attribute-name {
+  /* 「すばやさ」5 文字 + α を確保 (em 単位 = 文字幅基準) */
+  min-width: 6em;
+  white-space: nowrap;
+}
+
+.attribute-value {
+  /* 2 桁の値 (例: "18") を確実に表示 */
+  min-width: 2.5em;
+  text-align: center;
+  white-space: pre;
 }
 
 .attribute-row button {
