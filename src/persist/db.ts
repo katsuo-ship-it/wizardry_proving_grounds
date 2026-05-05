@@ -1,5 +1,5 @@
-import { openDB, type IDBPDatabase } from 'idb';
-import { DB_NAME, DB_VERSION, type WizardryDB } from './schema';
+import { type IDBPDatabase, openDB } from "idb";
+import { DB_NAME, DB_VERSION, type WizardryDB } from "./schema";
 
 let _db: IDBPDatabase<WizardryDB> | null = null;
 
@@ -8,12 +8,12 @@ export async function openWizardryDB(): Promise<IDBPDatabase<WizardryDB>> {
   _db = await openDB<WizardryDB>(DB_NAME, DB_VERSION, {
     upgrade(d, oldVersion) {
       if (oldVersion < 1) {
-        const slots = d.createObjectStore('saveSlot', { keyPath: 'id', autoIncrement: true });
-        slots.createIndex('by-updatedAt', 'updatedAt');
-        const chars = d.createObjectStore('character', { keyPath: 'id', autoIncrement: true });
-        chars.createIndex('by-slotId', 'slotId');
-        d.createObjectStore('settings');
-        d.createObjectStore('meta');
+        const slots = d.createObjectStore("saveSlot", { keyPath: "id", autoIncrement: true });
+        slots.createIndex("by-updatedAt", "updatedAt");
+        const chars = d.createObjectStore("character", { keyPath: "id", autoIncrement: true });
+        chars.createIndex("by-slotId", "slotId");
+        d.createObjectStore("settings");
+        d.createObjectStore("meta");
       }
     },
   });
@@ -35,13 +35,13 @@ export const db = {
 
   async getSetting(key: string): Promise<string | null> {
     const idb = await openWizardryDB();
-    const v = await idb.get('settings', key);
+    const v = await idb.get("settings", key);
     return v ?? null;
   },
 
   async setSetting(key: string, value: string): Promise<void> {
     const idb = await openWizardryDB();
-    await idb.put('settings', value, key);
+    await idb.put("settings", value, key);
   },
 
   // listSlots / saveState / loadState / deleteSlot は M5 で実装

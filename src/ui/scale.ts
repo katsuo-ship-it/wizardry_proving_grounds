@@ -13,11 +13,11 @@ export function computeScale(winWidth: number, winHeight: number): number {
 export function subscribeScaleToWindow(): () => void {
   const apply = (): void => {
     const s = computeScale(window.innerWidth, window.innerHeight);
-    document.documentElement.style.setProperty('--scale', String(s));
+    document.documentElement.style.setProperty("--scale", String(s));
   };
   apply();
-  window.addEventListener('resize', apply);
-  return () => window.removeEventListener('resize', apply);
+  window.addEventListener("resize", apply);
+  return () => window.removeEventListener("resize", apply);
 }
 
 /**
@@ -26,7 +26,7 @@ export function subscribeScaleToWindow(): () => void {
  * 古いブラウザ (FontFace API 非対応) では即座に解決する。
  */
 export async function waitForPixelFontsReady(): Promise<void> {
-  if (typeof document === 'undefined' || !('fonts' in document)) return;
+  if (typeof document === "undefined" || !("fonts" in document)) return;
   try {
     await Promise.all([
       document.fonts.load('1em "Print Char 21"'),

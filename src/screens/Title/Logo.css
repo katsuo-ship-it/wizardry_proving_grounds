@@ -1,0 +1,9 @@
+.apple2-logo {
+  margin: 0;
+  font-family: "Print Char 21", monospace;
+  font-size: var(--font-size-glyph);
+  line-height: var(--font-size-glyph);
+  white-space: pre;
+  color: var(--color-fg);
+  text-align: center;
+}

@@ -1,5 +1,5 @@
-import { useGameStore } from '@/store/gameStore';
-import { MESSAGES, type MessageKey } from './messages';
+import { useGameStore } from "@/store/gameStore";
+import { MESSAGES, type MessageKey } from "./messages";
 
 export function useT(): (key: MessageKey, vars?: Record<string, string | number>) => string {
   const lang = useGameStore((s) => s.lang);

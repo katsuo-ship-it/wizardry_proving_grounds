@@ -1,0 +1,60 @@
+.title-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: calc(2 * var(--vp));
+}
+
+.title-subtitle {
+  margin: 0;
+  font-size: var(--font-size-glyph);
+  color: var(--color-accent);
+}
+
+.title-menu {
+  display: flex;
+  flex-direction: column;
+  gap: calc(1 * var(--vp));
+  margin-top: calc(4 * var(--vp));
+}
+
+.title-menu button,
+.settings-row button,
+.settings-back {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border: var(--vp) solid var(--color-fg);
+  padding: calc(1 * var(--vp)) calc(4 * var(--vp));
+  font-family: inherit;
+  font-size: var(--font-size-glyph);
+  cursor: pointer;
+}
+
+.title-menu button:hover,
+.title-menu button:focus-visible,
+.settings-back:hover,
+.settings-back:focus-visible {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: calc(1 * var(--vp));
+  margin-bottom: calc(2 * var(--vp));
+}
+
+.settings-row button[disabled] {
+  background: var(--color-fg);
+  color: var(--color-bg);
+  cursor: default;
+}
+
+.settings-back {
+  display: block;
+  width: 100%;
+  margin-top: calc(2 * var(--vp));
+}

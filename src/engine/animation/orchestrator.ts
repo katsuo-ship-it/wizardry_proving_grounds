@@ -1,6 +1,12 @@
-import type { GameState } from '../state/types';
+import type { GameState } from "../state/types";
 
-export type AnimationKind = 'fade' | 'mazeStep' | 'mazeTurn' | 'doorOpen' | 'messageOpen' | 'messageClose';
+export type AnimationKind =
+  | "fade"
+  | "mazeStep"
+  | "mazeTurn"
+  | "doorOpen"
+  | "messageOpen"
+  | "messageClose";
 
 export const ANIM_DURATION: Record<AnimationKind, number> = {
   fade: 300,

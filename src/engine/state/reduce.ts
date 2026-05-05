@@ -1,9 +1,9 @@
-import type { GameEvent, GameState } from './types';
-import { reduceTitle } from './reduceTitle';
+import { reduceTitle } from "./reduceTitle";
+import type { GameEvent, GameState } from "./types";
 
 export function reduce(state: GameState, event: GameEvent): GameState {
   switch (state.phase) {
-    case 'title':
+    case "title":
       return reduceTitle(state, event);
     default:
       return state;

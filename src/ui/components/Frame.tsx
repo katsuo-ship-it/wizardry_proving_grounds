@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import './Frame.css';
+import type { ReactNode } from "react";
+import "./Frame.css";
 
 interface FrameProps {
   title?: string;
