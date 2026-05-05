@@ -17,9 +17,8 @@ describe("placeholder screens render via App", () => {
   });
 
   it.each([
-    // training/tavern/boltac は M3 で実画面化済 (除外)
+    // training/tavern/boltac/inn は M3 で実画面化済 (除外)
     ["temple", "Temple of Cant", "Save feature"],
-    ["inn", "Adventurer's Inn", "Stables rest"],
     ["utilities", "Utilities", "Restart Out Party"],
     ["maze", "The Maze", "Dungeon exploration"],
   ] as const)("renders %s with title and placeholder body", (phase, title, bodyContains) => {
