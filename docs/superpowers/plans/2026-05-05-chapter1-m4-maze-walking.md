@@ -38,7 +38,7 @@
 ### Phase D: Canvas 描画
 - Create: `src/render/canvas/draw.ts` — drawLine, drawRect, clear ラッパ
 - Create: `src/render/maze/render.ts` — renderMazeView (viewport + segments → Canvas)
-- Test: `tests/render/canvas/draw.test.ts` (jsdom + canvas mock のテスト)
+- Note: Canvas 出力のピクセル比較テストは spec Section 5 に従い手動 E2E (M4 では無)。`segments.test.ts` で線分配列の正しさを検証済み
 
 ### Phase E: Maze reducer + Camp
 - Create: `src/engine/state/reduceMaze.ts` — moveForward/Backward/turnLeft/Right/openCamp/ascendStairs
@@ -324,15 +324,6 @@ export const MAZE_L1: MazeLevel = {
 ```typescript
 // tests/engine/data/maze/level1.test.ts
 import { describe, expect, it } from "vitest";
-import { MAZE_L1, MAZE_SIZE } from "@/engine/data/maze/level1";
-// MAZE_SIZE は types.ts から
-```
-
-(以下は MAZE_SIZE が types.ts でエクスポートされているので import 修正)
-
-```typescript
-// tests/engine/data/maze/level1.test.ts
-import { describe, expect, it } from "vitest";
 import { MAZE_L1 } from "@/engine/data/maze/level1";
 import { MAZE_SIZE } from "@/engine/data/maze/types";
 import { getEdge } from "@/engine/data/maze/lookup";
@@ -538,7 +529,7 @@ git commit -m "feat(rules): movement helpers (turn/canPassEdge/canMoveForward/ad
 - [ ] **Step B2.1: 設計補足**
 
 視点 `(x, y, dir)` から見える 12 セルは、視線方向に深さ 0..3、左右に rel = -1, 0, +1 のグリッド。
-`forwardOf(pos, depth, rel)` で各セルの世界座標を計算する。
+`worldFromView(pos, depth, rel)` で各セルの世界座標を計算する。
 
 ```
 方向 N の場合:
@@ -1089,34 +1080,62 @@ git commit -m "feat(render): renderMazeView (depth-first occlusion + segment com
 
 ## Phase E: Maze reducer + Camp (P50: 0.7 日)
 
-### Task E1: types.ts に CampSubState 追加 + GameState 拡張
+### Task E1: types.ts に movement events / CampSubState / phase 拡張
 
 **Files:**
 - Modify: `src/engine/state/types.ts`
 
-- [ ] **Step E1.1: types.ts**
+> **重要**: 移動関連 events (`moveForward` 等) は M3 までの `types.ts` には未定義。M4 でまとめて追加する。
+
+- [ ] **Step E1.1: GameEvent union に movement events を追加**
+
+`types.ts` の `GameEvent` 型定義の `// 非同期ライフサイクル` セクションの直前に以下を追加:
 
 ```typescript
-// types.ts に追加
-export type CampSubState = { kind: "menu" };
+  // Maze 内移動 (M4)
+  | { type: "moveForward" }
+  | { type: "moveBackward" }
+  | { type: "turnLeft" }
+  | { type: "turnRight" }
+  | { type: "openCamp" }
+  | { type: "ascendStairs" }
+  | { type: "descendStairs" }
+  // Camp (M4)
+  | { type: "leaveCamp" }
+  | { type: "quitToTown" }
+```
 
-// GameState union の maze entry を変更し、camp を追加
+- [ ] **Step E1.2: CampSubState 追加 + GameState union 変更**
+
+```typescript
+// types.ts に追加 (TavernSubState などの近く)
+export type CampSubState = { kind: "menu" };
+```
+
+GameState union の maze entry を変更し、camp phase を追加:
+
+```typescript
 // 既存:
 //   | { phase: "maze"; sub: SimpleSubState; party: PartyState }
 // 変更後:
-//   | { phase: "maze"; pos: MazePosition; party: PartyState }
-//   | { phase: "camp"; sub: CampSubState; pos: MazePosition; party: PartyState }
+| { phase: "maze"; pos: MazePosition; party: PartyState }
+| { phase: "camp"; sub: CampSubState; pos: MazePosition; party: PartyState }
 ```
 
-GameEvent はすでに M2 で `moveForward / turnLeft / turnRight / moveBackward / openCamp / descendStairs / ascendStairs / leaveCamp / quitToTown` を定義済み (types.ts 確認)。
-
-- [ ] **Step E1.2: typecheck**
+- [ ] **Step E1.3: typecheck**
 
 ```bash
 pnpm typecheck
 ```
 
-placeholder reducer 等で `maze` を期待してたところがエラーになるかも。**この段階では OK** (Task E2 で解消)。
+期待: `reducePlaceholder` の `maze` 参照や、`App.tsx` の `case "maze":` で型不整合が出る。**この段階では OK** (Task E2/F2 で解消)。
+
+- [ ] **Step E1.4: コミット**
+
+```bash
+git add src/engine/state/types.ts
+git commit -m "feat(types): add maze movement + camp events; update GameState union"
+```
 
 ### Task E2: reduceMaze.ts のテストと実装
 
@@ -1269,14 +1288,46 @@ export function reduceMaze(
 
 - [ ] **Step E2.3: reduce.ts に maze を分離 + reducePlaceholder から除外**
 
-```typescript
-// reduce.ts
-import { reduceMaze } from "./reduceMaze";
-case "maze":
-  return reduceMaze(state, event);
+`src/engine/state/reduce.ts` の switch 文を以下の最終形に更新 (既存の `case "maze":` をフォールスルー block から外し、専用 case に):
 
-// reducePlaceholder.ts: PlaceholderPhase から "maze" を除く
+```typescript
+import { reduceBoltac } from "./reduceBoltac";
+import { reduceCastle } from "./reduceCastle";
+import { reduceEdgeOfTown } from "./reduceEdgeOfTown";
+import { reduceInn } from "./reduceInn";
+import { reduceMaze } from "./reduceMaze";
+import { reducePlaceholder } from "./reducePlaceholder";
+import { reduceTavern } from "./reduceTavern";
+import { reduceTitle } from "./reduceTitle";
+import { reduceTraining } from "./reduceTraining";
+import type { GameEvent, GameState } from "./types";
+
+export function reduce(state: GameState, event: GameEvent): GameState {
+  switch (state.phase) {
+    case "title":      return reduceTitle(state, event);
+    case "edgeOfTown": return reduceEdgeOfTown(state, event);
+    case "castle":     return reduceCastle(state, event);
+    case "training":   return reduceTraining(state, event);
+    case "tavern":     return reduceTavern(state, event);
+    case "boltac":     return reduceBoltac(state, event);
+    case "inn":        return reduceInn(state, event);
+    case "maze":       return reduceMaze(state, event);
+    case "utilities":
+    case "temple":     return reducePlaceholder(state, event);
+    default:           return state;
+  }
+}
+```
+
+`src/engine/state/reducePlaceholder.ts` の `PlaceholderPhase` から `"maze"` を除外:
+
+```typescript
 type PlaceholderPhase = "utilities" | "temple";
+
+const BACK_TARGET: Record<PlaceholderPhase, "edgeOfTown" | "castle"> = {
+  utilities: "edgeOfTown",
+  temple: "castle",
+};
 ```
 
 - [ ] **Step E2.4: reducePlaceholder テストから maze を除外**
@@ -1552,9 +1603,9 @@ git commit -m "feat(screens): Maze view with Canvas wireframe + keyboard input"
 ### Task F2: Camp 画面
 
 **Files:**
-- Modify: `src/screens/Camp/index.tsx`
+- Create: `src/screens/Camp/index.tsx`
 
-- [ ] **Step F2.1: 既存 placeholder Camp を実画面に**
+- [ ] **Step F2.1: Camp 実画面を新規作成**
 
 ```typescript
 // src/screens/Camp/index.tsx
@@ -1629,13 +1680,17 @@ git commit -m "feat(screens): Camp menu (leave / quit to town)"
 - Modify: `src/engine/state/reduceEdgeOfTown.ts`
 - Modify: `tests/engine/state/reduceEdgeOfTown.test.ts`
 
-- [ ] **Step G1.1: テスト追加**
+- [ ] **Step G1.1: 既存テストを置換 + 新規テスト追加**
+
+`tests/engine/state/reduceEdgeOfTown.test.ts` の既存の **`goToMaze → maze phase`** テストは旧 maze 形 (`{phase: "maze", sub: { kind: "menu" }, party: EMPTY_PARTY}`) を期待しており、M4 で破綻する。**置き換える**:
 
 ```typescript
+// 既存の goToMaze テストを削除し、以下に置き換え
+
 it("goToMaze with empty party stays in edgeOfTown", () => {
   // EMPTY_PARTY (members all null) で Maze に行こうとしても拒否
   const next = reduce(initial, { type: "goToMaze" });
-  // ... 空パーティだと state 不変
+  expect(next).toEqual(initial);
 });
 
 it("goToMaze with at least one member transitions to maze with start position", () => {
@@ -1648,6 +1703,8 @@ it("goToMaze with at least one member transitions to maze with start position", 
   if (next.phase !== "maze") throw new Error();
   // MAZE_L1.startPosition から
   expect(next.pos).toEqual({ level: 1, x: 1, y: 1, dir: "n" });
+  // party の status は inMaze に
+  expect(next.party.status).toBe("inMaze");
 });
 ```
 
