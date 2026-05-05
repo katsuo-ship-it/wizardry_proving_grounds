@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { ITEMS, ITEM_IDS } from "@/engine/data/items";
 import { addItem } from "@/engine/rules/inventory";
 import type { Character } from "@/engine/state/types";
@@ -7,6 +6,7 @@ import { db } from "@/persist/db";
 import { gameStore } from "@/store/gameStore";
 import { Frame } from "@/ui/components/Frame";
 import { Menu } from "@/ui/components/Menu";
+import { useEffect, useState } from "react";
 
 const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
   gameStore.getState().dispatch(e);

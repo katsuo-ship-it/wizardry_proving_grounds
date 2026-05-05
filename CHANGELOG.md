@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### Chapter 1 / M3 - 2026-05-05
+
+#### Added
+
+- Game data constants from M0 reference: 5 races, 8 classes, 12 items, 3 alignments
+- mulberry32 PRNG with rollDie helper for deterministic testing
+- Character type with full status (HP/MP/level/exp/gold/AC/age/restCount), inventory, status flag
+- IndexedDB character CRUD: listCharacters / addCharacter / updateCharacter / getCharacter / deleteCharacter
+- Character creation rules (pure functions): rollBonus, applyBonus, eligibleClasses, makeCharacterFromDraft
+- Inventory rules: addItem, removeItem, calcSellPrice (50% of cost)
+- 7-step character creation flow at Training Grounds: name → race → alignment → roll → allocate → class → confirm
+- Class qualification filter (e.g., Ninja requires all 17+ and evil)
+- Tavern with party formation (Add/Remove/Inspect, slot-based 6-member party)
+- Boltac's Trading Post: Buy and Sell with class restrictions, gold/inventory mutation, equipped items locked
+- Adventurer's Inn: Stables tier (free, restCount++ only, no HP recovery per 1981 original)
+  with Cot/Economy/Merchant/Royal Suite shown disabled until Chapter 2
+- Character detail inspect screen with delete confirmation
+- Character roster persistence across browser sessions
+
+#### Notes
+
+- All character creation and town services are now functional. M4 will add maze walking.
+- M5 will add Temple-of-Cant save, Restart Out Party, and Inn Cot+ tiers.
+- 118 tests passing across 22 files. Bundle: 60 KB gzip JS (still under 200 KB target).
+
 ### Chapter 1 / M2 - 2026-05-05
 
 #### Added

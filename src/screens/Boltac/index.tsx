@@ -1,7 +1,7 @@
 import { useGameStore } from "@/store/gameStore";
 import { BoltacMenu } from "./BoltacMenu";
-import { BuyerPick } from "./BuyerPick";
 import { BuyList } from "./BuyList";
+import { BuyerPick } from "./BuyerPick";
 import { SellList } from "./SellList";
 
 export function Boltac() {

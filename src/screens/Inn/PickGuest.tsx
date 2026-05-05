@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
 import type { Character } from "@/engine/state/types";
 import { useT } from "@/i18n/useT";
 import { db } from "@/persist/db";
 import { gameStore, useGameStore } from "@/store/gameStore";
 import { Frame } from "@/ui/components/Frame";
 import { Menu } from "@/ui/components/Menu";
+import { useEffect, useState } from "react";
 
 const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
   gameStore.getState().dispatch(e);
