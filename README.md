@@ -20,12 +20,9 @@ Apple II 版 Wizardry #1 "Proving Grounds of the Mad Overlord" (1981) のブラ�
 ```bash
 # 依存関係インストール
 pnpm install
-
-# Apple II 風フォントを手動で配置 (リポジトリには含まれていない)
-# 詳細: public/fonts/README.md を参照
-#   - PrintChar21.ttf (英語)
-#   - MisakiGothic.ttf (日本語)
 ```
+
+Apple II 風フォント (`PrintChar21.ttf` / `MisakiGothic.ttf`) は `public/fonts/` に同梱済みです。詳細・ライセンスは `public/fonts/README.md` を参照。
 
 ## 開発
 
@@ -63,4 +60,4 @@ main ブランチへの push で Vercel が自動デプロイ。
 - Thomas William Ewers — Pascal ソースの再構築 (前掲)
 - [tk421.net/wizardry](https://www.tk421.net/wizardry/) — Wizardry I 攻略情報の老舗
 - 門田暁人 — 美咲フォント (8x8 ピクセル日本語フォント)
-- Kreative Software — Print Char 21 (Apple II 風英語フォント)
+- [OnlineWebFonts.com](https://www.onlinewebfonts.com) — Print Char 21 (Apple II 風英語フォント、CC BY 4.0)
