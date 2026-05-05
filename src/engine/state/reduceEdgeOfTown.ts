@@ -1,3 +1,4 @@
+import { MAZE_L1 } from "@/engine/data/maze/level1";
 import type { GameEvent, GameState } from "./types";
 
 export function reduceEdgeOfTown(
@@ -10,8 +11,15 @@ export function reduceEdgeOfTown(
     switch (event.type) {
       case "goToTraining":
         return { phase: "training", sub: { kind: "menu" }, party };
-      case "goToMaze":
-        return { phase: "maze", sub: { kind: "menu" }, party };
+      case "goToMaze": {
+        const hasMembers = party.members.some((id) => id !== null);
+        if (!hasMembers) return state; // 空パーティでは Maze に入れない
+        return {
+          phase: "maze",
+          pos: { ...MAZE_L1.startPosition, level: 1 },
+          party: { ...party, status: "inMaze" },
+        };
+      }
       case "goToCastle":
         return { phase: "castle", sub: { kind: "menu" }, party };
       case "goToUtilities":

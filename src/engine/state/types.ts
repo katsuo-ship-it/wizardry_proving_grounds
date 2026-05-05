@@ -156,6 +156,9 @@ export type InnSubState =
   | { kind: "pickGuest" }
   | { kind: "rest"; guest: CharacterId };
 
+// Camp (M4)
+export type CampSubState = { kind: "menu" };
+
 // GameState union
 export type GameState =
   | { phase: "title"; sub: TitleSubState }
@@ -167,7 +170,8 @@ export type GameState =
   | { phase: "boltac"; sub: BoltacSubState; party: PartyState }
   | { phase: "temple"; sub: SimpleSubState; party: PartyState }
   | { phase: "inn"; sub: InnSubState; party: PartyState }
-  | { phase: "maze"; sub: SimpleSubState; party: PartyState };
+  | { phase: "maze"; pos: MazePosition; party: PartyState }
+  | { phase: "camp"; sub: CampSubState; pos: MazePosition; party: PartyState };
 
 // イベント
 export type GameEvent =
@@ -229,6 +233,17 @@ export type GameEvent =
   | { type: "pickGuest"; characterId: CharacterId }
   | { type: "restStables" }
   | { type: "leaveInn" }
+  // Maze 内移動 (M4)
+  | { type: "moveForward" }
+  | { type: "moveBackward" }
+  | { type: "turnLeft" }
+  | { type: "turnRight" }
+  | { type: "openCamp" }
+  | { type: "ascendStairs" }
+  | { type: "descendStairs" }
+  // Camp (M4)
+  | { type: "leaveCamp" }
+  | { type: "quitToTown" }
   // 非同期ライフサイクル (M5 で本格実装)
   | { type: "loadStarted"; slotId: SaveSlotId }
   | { type: "loadFailed"; reason: string };

@@ -17,12 +17,22 @@ describe("edgeOfTown phase reducer", () => {
     });
   });
 
-  it("goToMaze → maze phase", () => {
-    expect(reduce(initial, { type: "goToMaze" })).toEqual({
-      phase: "maze",
-      sub: { kind: "menu" },
-      party: EMPTY_PARTY,
-    });
+  it("goToMaze with empty party stays in edgeOfTown", () => {
+    // EMPTY_PARTY (members all null) で Maze に行こうとしても拒否
+    const next = reduce(initial, { type: "goToMaze" });
+    expect(next).toEqual(initial);
+  });
+
+  it("goToMaze with at least one member transitions to maze with start position", () => {
+    const withMember: GameState = {
+      ...initial,
+      party: { ...EMPTY_PARTY, members: [42, null, null, null, null, null] },
+    };
+    const next = reduce(withMember, { type: "goToMaze" });
+    expect(next.phase).toBe("maze");
+    if (next.phase !== "maze") throw new Error("");
+    expect(next.pos).toEqual({ level: 1, x: 1, y: 1, dir: "n" });
+    expect(next.party.status).toBe("inMaze");
   });
 
   it("goToCastle → castle phase", () => {

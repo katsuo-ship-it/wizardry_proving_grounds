@@ -17,10 +17,9 @@ describe("placeholder screens render via App", () => {
   });
 
   it.each([
-    // training/tavern/boltac/inn は M3 で実画面化済 (除外)
+    // training/tavern/boltac/inn/maze は M3-M4 で実画面化済 (除外)
     ["temple", "Temple of Cant", "Save feature"],
     ["utilities", "Utilities", "Restart Out Party"],
-    ["maze", "The Maze", "Dungeon exploration"],
   ] as const)("renders %s with title and placeholder body", (phase, title, bodyContains) => {
     gameStore.setState({
       state: { phase, sub: { kind: "menu" }, party: EMPTY_PARTY } as GameState,
@@ -39,9 +38,9 @@ describe("placeholder screens render via App", () => {
     expect(gameStore.getState().state.phase).toBe("castle");
   });
 
-  it("Back button on Maze transitions to Edge of Town", () => {
+  it("Back button on Utilities (placeholder) transitions to Edge of Town", () => {
     gameStore.setState({
-      state: { phase: "maze", sub: { kind: "menu" }, party: EMPTY_PARTY },
+      state: { phase: "utilities", sub: { kind: "menu" }, party: EMPTY_PARTY },
     });
     render(<App />);
     fireEvent.click(screen.getByText(/Back/));

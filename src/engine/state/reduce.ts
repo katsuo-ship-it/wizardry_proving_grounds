@@ -1,7 +1,9 @@
 import { reduceBoltac } from "./reduceBoltac";
+import { reduceCamp } from "./reduceCamp";
 import { reduceCastle } from "./reduceCastle";
 import { reduceEdgeOfTown } from "./reduceEdgeOfTown";
 import { reduceInn } from "./reduceInn";
+import { reduceMaze } from "./reduceMaze";
 import { reducePlaceholder } from "./reducePlaceholder";
 import { reduceTavern } from "./reduceTavern";
 import { reduceTitle } from "./reduceTitle";
@@ -24,8 +26,11 @@ export function reduce(state: GameState, event: GameEvent): GameState {
       return reduceBoltac(state, event);
     case "inn":
       return reduceInn(state, event);
-    case "utilities":
     case "maze":
+      return reduceMaze(state, event);
+    case "camp":
+      return reduceCamp(state, event);
+    case "utilities":
     case "temple":
       return reducePlaceholder(state, event);
     default:
