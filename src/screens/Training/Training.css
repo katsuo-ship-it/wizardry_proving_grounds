@@ -1,0 +1,32 @@
+.training-input {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border: var(--vp) solid var(--color-fg);
+  font-family: inherit;
+  font-size: var(--font-size-glyph);
+  padding: calc(1 * var(--vp)) calc(2 * var(--vp));
+  width: calc(20 * var(--vp));
+}
+
+.attribute-row {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--vp));
+  font-size: var(--font-size-glyph);
+}
+
+.attribute-row button {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border: var(--vp) solid var(--color-fg);
+  font-family: inherit;
+  font-size: var(--font-size-glyph);
+  padding: 0 calc(1 * var(--vp));
+  cursor: pointer;
+  min-width: calc(3 * var(--vp));
+}
+
+.attribute-row button:hover:not([disabled]) {
+  background: var(--color-fg);
+  color: var(--color-bg);
+}

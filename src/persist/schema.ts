@@ -1,5 +1,5 @@
-import type { DBSchema } from "idb";
 import type { Character } from "@/engine/state/types";
+import type { DBSchema } from "idb";
 
 export const DB_NAME = "wizardry-proving-grounds";
 export const DB_VERSION = 1;

@@ -17,7 +17,7 @@ describe("placeholder screens render via App", () => {
   });
 
   it.each([
-    ["training", "Training Grounds", "available in M3"],
+    // training は M3 で実画面化済 (除外)
     ["tavern", "Gilgamesh's Tavern", "Party formation"],
     ["boltac", "Boltac's Trading Post", "available in M3"],
     ["temple", "Temple of Cant", "Save feature"],
@@ -42,9 +42,9 @@ describe("placeholder screens render via App", () => {
     expect(gameStore.getState().state.phase).toBe("castle");
   });
 
-  it("Back button on Training transitions to Edge of Town", () => {
+  it("Back button on Maze transitions to Edge of Town", () => {
     gameStore.setState({
-      state: { phase: "training", sub: { kind: "menu" }, party: EMPTY_PARTY },
+      state: { phase: "maze", sub: { kind: "menu" }, party: EMPTY_PARTY },
     });
     render(<App />);
     fireEvent.click(screen.getByText(/Back/));

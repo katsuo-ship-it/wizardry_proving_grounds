@@ -1,4 +1,5 @@
 import { RACES } from "@/engine/data/races";
+import { mulberry32 } from "@/engine/rng/mulberry32";
 import {
   applyBonus,
   eligibleClasses,
@@ -6,7 +7,6 @@ import {
   rollBonus,
   startDraft,
 } from "@/engine/rules/character";
-import { mulberry32 } from "@/engine/rng/mulberry32";
 import { describe, expect, it } from "vitest";
 
 describe("rollBonus", () => {

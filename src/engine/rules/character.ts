@@ -2,12 +2,7 @@ import type { Alignment } from "@/engine/data/alignments";
 import { CLASSES, CLASS_IDS, type ClassId } from "@/engine/data/classes";
 import { RACES, type RaceId } from "@/engine/data/races";
 import type { RNG } from "@/engine/rng/mulberry32";
-import type {
-  AttributeKey,
-  Attributes,
-  Character,
-  CharacterDraft,
-} from "@/engine/state/types";
+import type { AttributeKey, Attributes, Character, CharacterDraft } from "@/engine/state/types";
 
 const ATTRIBUTE_MAX = 18;
 
@@ -87,7 +82,7 @@ export function eligibleClasses(attrs: Attributes, alignment: Alignment): ClassI
       if (typeof min !== "number") continue;
       if (attrs[key as AttributeKey] < min) return false;
     }
-    if (!k.alignments.includes(alignment)) return false;
+    if (!(k.alignments as readonly Alignment[]).includes(alignment)) return false;
     return true;
   });
 }
