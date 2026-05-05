@@ -29,13 +29,20 @@
 }
 
 .menu-item:hover,
-.menu-item:focus-visible {
+.menu-item:focus-visible,
+.menu-item--cursor {
   border-color: var(--color-fg);
 }
 
 .menu-item[disabled] {
   color: #666;
   cursor: default;
+}
+
+.menu-cursor {
+  width: var(--font-size-glyph);
+  color: var(--color-accent);
+  text-align: center;
 }
 
 .menu-hotkey {
