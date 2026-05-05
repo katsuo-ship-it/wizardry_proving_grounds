@@ -27,8 +27,16 @@ describe("title phase reducer", () => {
     expect(next).toEqual({ phase: "title", sub: { kind: "loadError", reason: "corrupted" } });
   });
 
-  it("startGame leaves state unchanged in M1 (M2 で実装)", () => {
+  it("startGame from main → edgeOfTown with empty party", () => {
     const next = reduce(initial, { type: "startGame" });
-    expect(next).toEqual(initial);
+    expect(next).toEqual({
+      phase: "edgeOfTown",
+      sub: { kind: "menu" },
+      party: {
+        members: [null, null, null, null, null, null],
+        gold: 0,
+        status: "inTown",
+      },
+    });
   });
 });

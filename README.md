@@ -5,7 +5,11 @@ Apple II 版 Wizardry #1 "Proving Grounds of the Mad Overlord" (1981) のブラ�
 ## 開発状況
 
 - ✅ **Chapter 1 / M0 + M1**: プロジェクト基盤、Title 画面、i18n、状態管理（入力キュー + 副作用 Orchestration）、IndexedDB スケルトン
-- ⏳ **Chapter 1 / M2 以降**: Castle / Edge of Town メニュー、キャラ作成、Boltac 売買、迷宮、寺院セーブ
+- ✅ **Chapter 1 / M2**: Edge of Town + Castle メニュー、7 サブ画面プレースホルダ、Leave Game 確認
+- ⏳ **Chapter 1 / M3**: キャラ作成、Tavern パーティ編成、Boltac 売買、Inn (Stables)、Utilities
+- ⏳ **Chapter 1 / M4**: 迷宮 1F 描画と歩行
+- ⏳ **Chapter 1 / M5**: IndexedDB セーブ/ロード (Temple)、Restart Out Party
+- ⏳ **Chapter 1 / M6+**: i18n 仕上げ、設定画面、統合テスト
 - ⏳ **Chapter 2+**: 戦闘、呪文、レベルアップ、B2F〜B10F、ボス、エンディング
 
 詳細は [docs/superpowers/specs/](docs/superpowers/specs/) と [docs/superpowers/plans/](docs/superpowers/plans/) を参照。

@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### Chapter 1 / M2 - 2026-05-05
+
+#### Added
+
+- Edge of Town menu (T/M/C/U/L) with hotkey navigation
+- Castle hub menu (G/B/T/A/E)
+- Leave Game confirmation dialog (Y/N)
+- Placeholder screens for Training, Utilities, Tavern, Boltac, Temple, Inn, Maze
+- Reusable `Menu` component with hotkey support (global keydown listener)
+- Reusable `Placeholder` component with `goBack` event routing
+- New game flow: Title "New Game" now transitions to Edge of Town with empty party
+- i18n messages for Edge of Town, Castle, and 7 sub-screen titles/placeholders
+
+#### Notes
+
+- All sub-screens (Training, Tavern, etc.) display "available in M{n}" placeholders
+- M3 will implement Training/Tavern/Boltac/Inn (Stables only) and Utilities
+- M4 will implement Maze (3D wireframe view + 1F walking)
+- M5 will implement Temple save and Restart Out Party
+
+#### Tests
+
+- 57/57 tests passing across 12 test files
+- Bundle size: 52.28 KB gzip JS (target ≤ 200 KB)
+
 ### Chapter 1 / M0 + M1 - 2026-05-04
 
 #### Added

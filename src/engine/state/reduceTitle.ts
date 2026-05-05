@@ -1,9 +1,16 @@
 import type { GameEvent, GameState } from "./types";
+import { EMPTY_PARTY } from "./types";
 
 export function reduceTitle(state: GameState & { phase: "title" }, event: GameEvent): GameState {
   const { sub } = state;
 
   switch (event.type) {
+    case "startGame":
+      if (sub.kind === "main") {
+        return { phase: "edgeOfTown", sub: { kind: "menu" }, party: EMPTY_PARTY };
+      }
+      return state;
+
     case "openContinue":
       return { phase: "title", sub: { kind: "continueMenu", slots: [] } };
 
@@ -22,7 +29,6 @@ export function reduceTitle(state: GameState & { phase: "title" }, event: GameEv
       }
       return state;
 
-    // M2 以降で実装
     default:
       return state;
   }
