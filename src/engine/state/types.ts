@@ -11,6 +11,7 @@ export type SaveSlotId = number;
 export interface SaveSlotInfo {
   id: SaveSlotId;
   name: string;
+  createdAt: number;
   updatedAt: number;
 }
 
