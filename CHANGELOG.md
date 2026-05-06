@@ -2,6 +2,45 @@
 
 ## [Unreleased]
 
+### Chapter 1 / M4 - 2026-05-06
+
+#### Added
+
+- Maze data types (Cell / CellEdge / SpecialTile / MazeLevel) with edge-normalized
+  storage (north/west on cell, south/east derived from neighbor)
+- `MAZE_L1` minimal 4x4 test map with up-stairs and a door (full 20x20 from
+  tk421 deferred)
+- Movement rules (pure functions): turnLeft/turnRight/reverse, canPassEdge,
+  canMoveForward, advance
+- Viewport calculation: `worldFromView` (pos+dir → world coord) and
+  `computeViewport` returning 12 visible cells
+- WIREFRAME_TABLE with 12 entries (4 depths × 3 rel positions) using nested
+  perspective rectangles + lateral parallax shifts
+- `selectSegments` per-cell renderer choosing wall/door/stairs based on edges
+- Canvas drawing helpers: clear + drawLines (pixel-aligned)
+- `renderMazeView` with depth-first occlusion (far-to-near order)
+- `reduceMaze` with movement, camp transition, stairs-to-edgeOfTown
+- `reduceCamp` with leave (back to maze) and quit-to-town (party becomes OUT)
+- Maze screen: Canvas + keyboard input (Arrow/WASD/C/Enter)
+- Camp screen: Menu with Leave / Quit
+- Edge of Town now blocks Maze entry on empty party and uses
+  MAZE_L1.startPosition
+
+#### Notes
+
+- 9 movement events added to GameEvent: moveForward/moveBackward/turnLeft/
+  turnRight/openCamp/ascendStairs/descendStairs/leaveCamp/quitToTown
+- maze phase now carries `pos` instead of `sub`. camp phase has both `sub`
+  and `pos` (preserves location while in camp menu)
+- Wireframe coordinates are provisional — Apple II accuracy requires Pascal
+  extraction (deferred)
+- Full 20x20 L1 cell data ingestion deferred to a separate task
+
+#### Tests
+
+- 167/167 tests passing across 29 files
+- Bundle: 62.06 KB gzip JS (still under 200 KB target)
+
 ### Chapter 1 / M3 - 2026-05-05
 
 #### Added
