@@ -192,19 +192,27 @@ git commit -m "feat(persist): GameState serialize/deserialize with phase validat
 - Modify: `src/persist/db.ts`
 - Test: `tests/persist/save.test.ts`
 
-- [ ] **Step A2.1: db.ts の `db` オブジェクトに以下を追加**
+- [ ] **Step A2.1: types.ts の SaveSlotInfo を拡張**
+
+`src/engine/state/types.ts` の既存 `SaveSlotInfo` に `createdAt` フィールドを追加 (現状は `id`/`name`/`updatedAt` のみ):
 
 ```typescript
-// src/persist/db.ts (既存 db 内に追加)
-import { deserializeState, serializeState } from "./serialize";
-import type { GameState } from "@/engine/state/types";
-
 export interface SaveSlotInfo {
-  id: number;
+  id: SaveSlotId;
   name: string;
   createdAt: number;
   updatedAt: number;
 }
+```
+
+> 注: db.ts では新規型は宣言しない。既存の `SaveSlotInfo` を `@/engine/state/types` から import して使う (重複型定義の回避)。
+
+- [ ] **Step A2.2: db.ts の `db` オブジェクトに以下を追加**
+
+```typescript
+// src/persist/db.ts (既存 db 内に追加)
+import { deserializeState, serializeState } from "./serialize";
+import type { GameState, SaveSlotInfo } from "@/engine/state/types";
 
 // db オブジェクトに追加 (既存メソッドの後ろに):
 
@@ -340,7 +348,7 @@ async importAll(json: Blob, mode: "replace" | "merge"): Promise<void> {
 },
 ```
 
-- [ ] **Step A2.2: テスト**
+- [ ] **Step A2.3: テスト**
 
 ```typescript
 // tests/persist/save.test.ts
@@ -478,7 +486,7 @@ pnpm test save
 - [ ] **Step A2.4: コミット**
 
 ```bash
-git add src/persist/db.ts tests/persist/save.test.ts
+git add src/engine/state/types.ts src/persist/db.ts tests/persist/save.test.ts
 git commit -m "feat(persist): atomic save/load with transactions + export/import"
 ```
 
@@ -510,7 +518,7 @@ export type Effect =
   | { type: "saveSucceeded"; slotId: SaveSlotId }
   | { type: "saveFailed"; reason: string }
   | { type: "dismissSaveResult" }
-  | { type: "loadSucceeded"; state: GameState; characterIds: number[] }
+  | { type: "loadSucceeded"; state: GameState }
   | { type: "dismissLoadResult" }
   | { type: "openSavePicker" }
   | { type: "pickSlot"; slotId: SaveSlotId | "new" }
@@ -545,7 +553,9 @@ git commit -m "feat(types): extend Effect and GameEvent for M5 save/load"
 - Modify: `src/engine/effects/orchestrator.ts`
 - Modify: `src/store/internalEventTypes.ts`
 
-- [ ] **Step B2.1: orchestrator.ts**
+- [ ] **Step B2.1: orchestrator.ts (置き換え)**
+
+> **設計判断**: state を取るための関数は **runEffect の引数として受け取る** (モジュールレベル mutable state を使わない)。テスト容易性 + 循環 import 回避が目的。
 
 ```typescript
 // src/engine/effects/orchestrator.ts (置き換え)
@@ -579,19 +589,20 @@ export function bindEffect(prev: GameState, next: GameState): Effect | null {
 
 /**
  * 副作用を実行し、完了時に内部イベントを dispatch する。
+ *
+ * @param effect 実行する副作用
+ * @param dispatch 完了/失敗時のイベント発火関数
+ * @param getState save 時に現在の state を取得するための関数
  */
 export async function runEffect(
   effect: Effect,
   dispatch: (e: GameEvent) => void,
+  getState: () => GameState,
 ): Promise<void> {
   if (effect.type === "load") {
     try {
-      const { state, characters } = await db.loadStateAtomic(effect.slotId);
-      dispatch({
-        type: "loadSucceeded",
-        state,
-        characterIds: characters.map((c) => c.id),
-      });
+      const { state } = await db.loadStateAtomic(effect.slotId);
+      dispatch({ type: "loadSucceeded", state });
     } catch (err) {
       const reason = err instanceof Error ? err.message : "Unknown error";
       dispatch({ type: "loadFailed", reason });
@@ -604,8 +615,10 @@ export async function runEffect(
       const slotId = await db.saveStateAtomic({
         slotId: effect.slotId,
         name: effect.name,
-        state: getCurrentState(),
-        changedCharacters: [], // M5 段階では state 経由のキャラは別管理 (M3 で UI-direct 更新済み)
+        state: getState(),
+        // M5 範囲では UI-direct (Boltac/Inn) で character は更新済み。
+        // Chapter 2 で戦闘・状態変化が入ったら、現在パーティ内のキャラを差分として渡すよう拡張。
+        changedCharacters: [],
       });
       dispatch({ type: "saveSucceeded", slotId });
     } catch (err) {
@@ -614,26 +627,19 @@ export async function runEffect(
     }
   }
 }
-
-// 副作用ランナーから現在の state を取るためのフック (循環 import 回避)
-let _getState: (() => GameState) | null = null;
-export function setStateGetter(getter: () => GameState): void {
-  _getState = getter;
-}
-function getCurrentState(): GameState {
-  if (!_getState) throw new Error("setStateGetter not called");
-  return _getState();
-}
 ```
 
-- [ ] **Step B2.2: gameStore で setStateGetter を呼ぶ**
+- [ ] **Step B2.2: gameStore で getState を runEffect に渡す**
 
-`src/store/gameStore.ts` の `createGameStore` 末尾あたりに追加:
+`src/store/gameStore.ts` の `dispatch` 内、`runEffect(effect, dispatch).finally(...)` 呼び出しを更新:
 
 ```typescript
-import { setStateGetter } from "@/engine/effects/orchestrator";
-// createGameStore 内、return store の前:
-setStateGetter(() => store.getState().state);
+// 既存 (M1 から):
+//   runEffect(effect, get().dispatch).finally(() => { ... });
+// ↓ 変更:
+runEffect(effect, get().dispatch, () => get().state).finally(() => {
+  // ... 既存の finally ハンドラ
+});
 ```
 
 - [ ] **Step B2.3: internalEventTypes.ts に新イベントを追加**
@@ -765,15 +771,33 @@ export function reduceTemple(
 
 - [ ] **Step C1.3: reduce.ts に temple を追加 + placeholder から外す**
 
+`src/engine/state/reduce.ts` の switch 文を更新:
+
 ```typescript
-// reduce.ts
 import { reduceTemple } from "./reduceTemple";
+
+// 既存の switch 内、placeholder のフォールスルー block:
+//   case "utilities":
+//   case "temple":
+//     return reducePlaceholder(state, event);
+// ↓ temple を専用ケースに分離 (utilities は Phase E まで placeholder のまま):
 case "temple":
   return reduceTemple(state, event);
-
-// reducePlaceholder.ts: PlaceholderPhase から "temple" を除く
-type PlaceholderPhase = "utilities";
+case "utilities":
+  return reducePlaceholder(state, event);
 ```
+
+`src/engine/state/reducePlaceholder.ts` の `PlaceholderPhase` から `"temple"` を除外:
+
+```typescript
+type PlaceholderPhase = "utilities";
+
+const BACK_TARGET: Record<PlaceholderPhase, "edgeOfTown" | "castle"> = {
+  utilities: "edgeOfTown",
+};
+```
+
+`tests/engine/state/reducePlaceholder.test.ts` の `it.each` 配列から `["temple", "castle"]` エントリを削除。
 
 - [ ] **Step C1.4: テスト**
 
@@ -1200,11 +1224,7 @@ it("loadSucceeded from loading → replaces state with loaded", () => {
     sub: { kind: "menu" },
     party: EMPTY_PARTY,
   };
-  const next = reduce(loading, {
-    type: "loadSucceeded",
-    state: loaded,
-    characterIds: [],
-  });
+  const next = reduce(loading, { type: "loadSucceeded", state: loaded });
   expect(next).toEqual(loaded);
 });
 ```
@@ -1228,20 +1248,19 @@ git commit -m "feat(engine): title reducer handles continueGame and loadSucceede
 // src/screens/Title/index.tsx の TitleContinue を置き換え
 function TitleContinue() {
   const t = useT();
+  const isHealthy = useGameStore((s) => s.isStorageHealthy); // Phase F の global flag
   const [slots, setSlots] = useState<SaveSlotInfo[]>([]);
-  const [healthy, setHealthy] = useState(true);
 
   useEffect(() => {
-    db.listSlots()
-      .then(setSlots)
-      .catch(() => setHealthy(false));
-  }, []);
+    if (!isHealthy) return;
+    db.listSlots().then(setSlots).catch(() => {});
+  }, [isHealthy]);
 
   return (
     <div className="menu-screen">
       <Frame title={t("title.continue.title")}>
-        {!healthy && <p className="title-warning">{t("storage.unavailable")}</p>}
-        {healthy && slots.length === 0 && <p>{t("title.continue.noSaves")}</p>}
+        {!isHealthy && <p className="title-warning">{t("storage.unavailable")}</p>}
+        {isHealthy && slots.length === 0 && <p>{t("title.continue.noSaves")}</p>}
         <Menu
           items={[
             ...slots.map((slot, i) => ({
@@ -1266,7 +1285,8 @@ import 追加が必要:
 
 ```typescript
 import { useEffect, useState } from "react";
-import { db, type SaveSlotInfo } from "@/persist/db";
+import { db } from "@/persist/db";
+import type { SaveSlotInfo } from "@/engine/state/types";
 ```
 
 - [ ] **Step D2.2: TitleLoading 表示 (loading sub-state)**
@@ -1372,34 +1392,34 @@ export function reduceUtilities(
 }
 ```
 
-- [ ] **Step E1.3: reduce.ts に utilities を追加 + placeholder から外す**
+- [ ] **Step E1.3: reduce.ts に utilities を追加 + reducePlaceholder を削除**
+
+`src/engine/state/reduce.ts` の switch 文を更新:
 
 ```typescript
-// reduce.ts
 import { reduceUtilities } from "./reduceUtilities";
+
+// 既存の placeholder ケース (case "utilities": return reducePlaceholder(state, event);)
+// を削除し、専用 reducer に差し替え:
 case "utilities":
   return reduceUtilities(state, event);
-
-// reducePlaceholder.ts: PlaceholderPhase 空に (= placeholder reducer は使わなくなる)
-// ファイル自体は残しておく (将来別の placeholder が出るかも)
 ```
 
-`reducePlaceholder.ts` を空配列対応にするか、削除するか判断。M5 では空 phase で残す:
+reducePlaceholder の import 文を削除し、すべての phase が専用 reducer で処理される状態に。
 
-```typescript
-// reducePlaceholder.ts
-type PlaceholderPhase = never;
-const BACK_TARGET: Record<string, never> = {};
+**reducePlaceholder.ts と reducePlaceholder.test.ts は不要になるので削除する**:
 
-export function reducePlaceholder(
-  _state: never,
-  _event: GameEvent,
-): GameState {
-  return _state;
-}
+```bash
+git rm src/engine/state/reducePlaceholder.ts tests/engine/state/reducePlaceholder.test.ts
 ```
 
-> または PlaceholderPhase 空でファイルを削除し、reduce.ts の他 case ですべて handled になることを確認。**M5 では削除を選択** (`reducePlaceholder.ts` と `reducePlaceholder.test.ts` を削除)。
+念のため、削除前に他で import されていないか確認:
+
+```bash
+grep -r "reducePlaceholder" src/ tests/
+```
+
+期待: マッチなし (Phase C と E でフックを外した結果)。
 
 - [ ] **Step E1.4: テスト**
 
