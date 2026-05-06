@@ -1,14 +1,13 @@
 import type { GameEvent, GameState } from "./types";
 
-// training/tavern/boltac/inn/maze は M3-M4 で実画面化 (専用 reducer 経由)
-type PlaceholderPhase = "utilities" | "temple";
+// training/tavern/boltac/inn/maze/temple は M3-M5 で実画面化 (専用 reducer)
+type PlaceholderPhase = "utilities";
 
 /**
  * 各 placeholder phase で 'goBack' を受け取ったときの戻り先。
  */
 const BACK_TARGET: Record<PlaceholderPhase, "edgeOfTown" | "castle"> = {
   utilities: "edgeOfTown",
-  temple: "castle",
 };
 
 export function reducePlaceholder(

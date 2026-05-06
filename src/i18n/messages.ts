@@ -142,6 +142,33 @@ export const MESSAGES = {
     "camp.title": "Camp",
     "camp.menu.leave": "Leave Camp (back to maze)",
     "camp.menu.quit": "Quit to Town (party becomes OUT)",
+    // Temple Save (M5)
+    "temple.greeting": "Welcome, weary travelers. The chronicler awaits.",
+    "temple.menu.pray": "Pray to record your journey",
+    "temple.savePicker.title": "CHOOSE A SLOT",
+    "temple.savePicker.newSlot": "(New slot)",
+    "temple.saveNameInput.title": "NAME THIS CHRONICLE",
+    "temple.saveNameInput.prompt": "Enter a name (max 20 chars)",
+    "temple.saving.title": "SAVING",
+    "temple.saving.body": "The chronicler scribes your tale...",
+    "temple.saveDone.title": "SAVED",
+    "temple.saveDone.body": "Your tale is recorded.",
+    "temple.saveError.title": "THE CHRONICLER ERRS",
+    // Title Continue (M5)
+    "title.continue.title": "CONTINUE",
+    "title.continue.noSaves": "No saved chronicles found.",
+    "title.loading.body": "Recalling your tale...",
+    "title.loadError.title": "LOAD FAILED",
+    // Utilities (M5)
+    "utilities.menu.restart": "Restart Out Party",
+    "utilities.restart.title": "OUT PARTIES",
+    "utilities.restart.empty": "No saved parties to restart.",
+    // Storage (M5)
+    "storage.unavailable": "Browser storage unavailable. Save will not persist.",
+    // Settings Export/Import (M5)
+    "settings.export": "Export save (JSON)",
+    "settings.import": "Import save (JSON)",
+    "settings.import.confirm": "Importing will REPLACE all current data. Continue?",
   },
   ja: {
     // Title
@@ -287,6 +314,34 @@ export const MESSAGES = {
     "camp.title": "キャンプ",
     "camp.menu.leave": "もどる (めいきゅうへ)",
     "camp.menu.quit": "まちへもどる (パーティは OUT)",
+    // Temple Save (M5)
+    "temple.greeting": "つかれた たびびとよ。ねんだいきは しずかに まっておる。",
+    "temple.menu.pray": "いのりをささげる",
+    "temple.savePicker.title": "スロットをえらぶ",
+    "temple.savePicker.newSlot": "(あたらしい スロット)",
+    "temple.saveNameInput.title": "ねんだいきの なまえ",
+    "temple.saveNameInput.prompt": "なまえを いれてください (はんかく20もじまで)",
+    "temple.saving.title": "セーブちゅう",
+    "temple.saving.body": "ねんだいきに きざんでおる...",
+    "temple.saveDone.title": "セーブ かんりょう",
+    "temple.saveDone.body": "あなたの ものがたりは きざまれた。",
+    "temple.saveError.title": "ねんだいきは あやまる",
+    // Title Continue (M5)
+    "title.continue.title": "つづきから",
+    "title.continue.noSaves": "ほぞんされた ものがたりは ありません。",
+    "title.loading.body": "ものがたりを よみこんでいます...",
+    "title.loadError.title": "ロード しっぱい",
+    // Utilities (M5)
+    "utilities.menu.restart": "OUT パーティの ふっき",
+    "utilities.restart.title": "OUT パーティ",
+    "utilities.restart.empty": "ふっき できる パーティは ありません。",
+    // Storage (M5)
+    "storage.unavailable": "ブラウザストレージが りようできません。セーブは ほぞん されません。",
+    // Settings Export/Import (M5)
+    "settings.export": "セーブ エクスポート (JSON)",
+    "settings.import": "セーブ インポート (JSON)",
+    "settings.import.confirm":
+      "インポートすると げんざいの データが すべて おきかえられます。すすみますか?",
   },
 } as const;
 
