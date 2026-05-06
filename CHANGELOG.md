@@ -2,6 +2,48 @@
 
 ## [Unreleased]
 
+### Chapter 1 / M5 - 2026-05-04
+
+#### Added
+
+- IndexedDB save/load with atomic transaction across `saveSlot` + `character`
+  stores (single readwrite tx; characters serialized separately, gameState JSON
+  references characterId)
+- `serializeState` / `deserializeState` with phase whitelist validation
+- `db.listSlots` / `deleteSlot` / `saveStateAtomic` / `loadStateAtomic`
+- `db.exportAll` (Blob) / `importAll` (replace mode) for JSON dump/restore;
+  FileReader-based blob→text for jsdom + native compatibility
+- Temple of Cant save flow: menu → save picker (existing slot or "New") →
+  name input → progress → done/error (auto-back on done)
+- Title screen: Continue lists save slots from IndexedDB; selecting a slot
+  fires `load` effect that replaces full GameState
+- Settings screen: Export Save (download JSON) + Import Save (file input,
+  warns "all data overwritten")
+- Utilities → Restart Out Party: lists all slots (M5 simplified — full
+  OUT-state filter deferred)
+- `checkStorageHealth` IndexedDB sanity probe at bootstrap; Title shows red
+  warning banner when storage is unavailable
+- Effect orchestrator: `bindEffect` detects `temple.saving` / `title.loading`
+  state transitions; `runEffect` dispatches `loadStarted` / `saveStarted`
+  then resolves to `*Succeeded` / `*Failed`
+- 6 internal events for save/load lifecycle (`loadStarted`, `loadSucceeded`,
+  `loadFailed`, `saveStarted`, `saveSucceeded`, `saveFailed`)
+
+#### Notes
+
+- `runEffect` now takes `getState: () => GameState` as a parameter (was
+  module-level closure) — keeps store the single source of truth
+- Placeholder screen/reducer removed (now redundant — all phases route to
+  dedicated reducers)
+- `INTERNAL_EVENT_TYPES` (input-queue bypass) extended for save/load events
+
+#### Tests
+
+- 181 tests passing across 30 files (+14 from M4)
+- New: `serialize.test.ts`, `save.test.ts`, `reduceTemple.test.ts`,
+  expanded `reduceTitle.test.ts`
+- Bundle: 64.81 KB gzip JS (still under 200 KB target)
+
 ### Chapter 1 / M4 - 2026-05-06
 
 #### Added
