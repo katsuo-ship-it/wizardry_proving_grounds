@@ -5,8 +5,8 @@
 //
 // ※ 暫定座標。Pascal 抽出 or 実機スクショで要調整 (open question)。
 
-import type { Depth, RelPos } from "./viewport";
 import type { LineSegment, SegmentSet, WireframeTable } from "./types";
+import type { Depth, RelPos } from "./viewport";
 
 interface Rect {
   l: number;

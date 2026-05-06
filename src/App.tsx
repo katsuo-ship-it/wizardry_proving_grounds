@@ -1,4 +1,5 @@
 import { Boltac } from "@/screens/Boltac";
+import { Camp } from "@/screens/Camp";
 import { Castle } from "@/screens/Castle";
 import { EdgeOfTown } from "@/screens/EdgeOfTown";
 import { Inn } from "@/screens/Inn";
@@ -33,6 +34,8 @@ export function App() {
       return <Inn />;
     case "maze":
       return <Maze />;
+    case "camp":
+      return <Camp />;
     default:
       return <div>Unknown phase: {phase}</div>;
   }

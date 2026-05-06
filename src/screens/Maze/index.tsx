@@ -1,7 +1,5 @@
-import { Placeholder } from "@/screens/Placeholder";
+import { MazeView } from "./MazeView";
 
 export function Maze() {
-  return (
-    <Placeholder titleKey="maze.title" bodyKey="maze.placeholder" backLabelKey="common.back" />
-  );
+  return <MazeView />;
 }

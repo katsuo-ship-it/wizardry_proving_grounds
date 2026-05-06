@@ -18,7 +18,7 @@ describe("gameStore", () => {
 
   it("dispatch openSettings transitions to settings", () => {
     store.getState().dispatch({ type: "openSettings" });
-    expect(store.getState().state.sub).toEqual({ kind: "settings" });
+    expect(store.getState().state).toEqual({ phase: "title", sub: { kind: "settings" } });
   });
 
   it("dispatch changeLanguage updates lang directly (bypasses reducer)", () => {
@@ -30,7 +30,7 @@ describe("gameStore", () => {
   it("dispatch when isAnimating queues input", () => {
     store.setState({ isAnimating: true });
     store.getState().dispatch({ type: "openSettings" });
-    expect(store.getState().state.sub).toEqual({ kind: "main" });
+    expect(store.getState().state).toEqual({ phase: "title", sub: { kind: "main" } });
     expect(store.getState().inputQueue).toHaveLength(1);
   });
 

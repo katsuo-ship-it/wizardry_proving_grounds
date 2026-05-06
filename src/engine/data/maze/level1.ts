@@ -18,7 +18,10 @@ const SOLID_CELL: Cell = {
 };
 
 function makeRow(): Cell[] {
-  return Array.from({ length: MAZE_SIZE }, () => ({ ...SOLID_CELL, edges: { ...SOLID_CELL.edges } }));
+  return Array.from({ length: MAZE_SIZE }, () => ({
+    ...SOLID_CELL,
+    edges: { ...SOLID_CELL.edges },
+  }));
 }
 
 const grid: Cell[][] = Array.from({ length: MAZE_SIZE }, () => makeRow());

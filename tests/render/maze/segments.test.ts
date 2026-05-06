@@ -1,6 +1,6 @@
 import { MAZE_L1 } from "@/engine/data/maze/level1";
-import { selectSegments } from "@/render/maze/segments";
 import type { MazePosition } from "@/engine/state/types";
+import { selectSegments } from "@/render/maze/segments";
 import { describe, expect, it } from "vitest";
 
 describe("selectSegments", () => {

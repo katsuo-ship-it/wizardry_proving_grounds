@@ -1,11 +1,6 @@
 import type { LineSegment } from "@/render/maze/types";
 
-export function clear(
-  ctx: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  color = "#000",
-): void {
+export function clear(ctx: CanvasRenderingContext2D, w: number, h: number, color = "#000"): void {
   ctx.fillStyle = color;
   ctx.fillRect(0, 0, w, h);
 }

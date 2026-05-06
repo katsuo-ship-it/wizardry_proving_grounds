@@ -136,6 +136,12 @@ export const MESSAGES = {
     "inn.rest.economy": "Economy (50 GP) [Ch.2]",
     "inn.rest.merchant": "Merchant (200 GP) [Ch.2]",
     "inn.rest.royal": "Royal Suite (500 GP) [Ch.2]",
+    // Maze (M4)
+    "maze.hint": "↑↓ move  ←→ turn  C camp  Enter stairs",
+    // Camp (M4)
+    "camp.title": "Camp",
+    "camp.menu.leave": "Leave Camp (back to maze)",
+    "camp.menu.quit": "Quit to Town (party becomes OUT)",
   },
   ja: {
     // Title
@@ -275,6 +281,12 @@ export const MESSAGES = {
     "inn.rest.economy": "エコノミー (50 GP) [Ch.2]",
     "inn.rest.merchant": "マーチャント (200 GP) [Ch.2]",
     "inn.rest.royal": "ロイヤルスイート (500 GP) [Ch.2]",
+    // Maze (M4)
+    "maze.hint": "↑↓ いどう  ←→ かいてん  C キャンプ  Enter かいだん",
+    // Camp (M4)
+    "camp.title": "キャンプ",
+    "camp.menu.leave": "もどる (めいきゅうへ)",
+    "camp.menu.quit": "まちへもどる (パーティは OUT)",
   },
 } as const;
 

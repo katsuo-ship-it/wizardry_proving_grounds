@@ -1,0 +1,30 @@
+.maze-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+}
+
+.maze-canvas {
+  width: var(--viewport-width);
+  height: calc(160 * var(--vp));
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.maze-status {
+  display: flex;
+  gap: calc(2 * var(--vp));
+  font-size: var(--font-size-glyph);
+  color: var(--color-fg);
+  padding: calc(1 * var(--vp));
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.maze-hint {
+  color: var(--color-accent);
+  margin-left: auto;
+}
