@@ -27,6 +27,23 @@ export function reduceTitle(state: GameState & { phase: "title" }, event: GameEv
       if (sub.kind === "continueMenu") {
         return { phase: "title", sub: { kind: "main" } };
       }
+      // loadError 表示時にも main へ戻れるように
+      if (sub.kind === "loadError") {
+        return { phase: "title", sub: { kind: "main" } };
+      }
+      return state;
+
+    case "continueGame":
+      if (sub.kind === "continueMenu") {
+        return { phase: "title", sub: { kind: "loading", slotId: event.slotId } };
+      }
+      return state;
+
+    case "loadSucceeded":
+      if (sub.kind === "loading") {
+        // ロード完了: 復元された state で完全置換
+        return event.state;
+      }
       return state;
 
     case "loadFailed":

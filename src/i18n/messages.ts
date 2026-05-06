@@ -113,16 +113,8 @@ export const MESSAGES = {
     "boltac.buy.title": "{name} - Gold: {gold}",
     "boltac.sell.title": "{name} - Gold: {gold}",
     "boltac.sell.noItems": "No items to sell.",
-    // Placeholders (for screens still on Placeholder component)
-    "training.placeholder": "Character creation will be available in M3.",
     "utilities.title": "Utilities",
-    "utilities.placeholder": "Restart Out Party will be available in M5.",
-    "tavern.placeholder": "Party formation will be available in M3.",
-    "boltac.placeholder": "Trading will be available in M3.",
-    "temple.placeholder": "Save feature will be available in M5.",
-    "inn.placeholder": "Stables rest will be available in M3.",
     "maze.title": "The Maze",
-    "maze.placeholder": "Dungeon exploration will be available in M4.",
     "temple.title": "Temple of Cant",
     // Inn
     "inn.title": "Adventurer's Inn",
@@ -284,16 +276,8 @@ export const MESSAGES = {
     "boltac.buy.title": "{name}  しょじきん: {gold} GP",
     "boltac.sell.title": "{name}  しょじきん: {gold} GP",
     "boltac.sell.noItems": "うれるアイテムが ありません。",
-    // Placeholders (一時的、各 Phase で実画面化したら削除)
-    "training.placeholder": "キャラクター さくせいは M3 でかいほうされます。",
     "utilities.title": "ユーティリティ",
-    "utilities.placeholder": "パーティ ふっきは M5 でかいほうされます。",
-    "tavern.placeholder": "パーティ へんせいは M3 でかいほうされます。",
-    "boltac.placeholder": "うりかいは M3 でかいほうされます。",
-    "temple.placeholder": "セーブきのうは M5 でかいほうされます。",
-    "inn.placeholder": "やすみは M3 でかいほうされます。",
     "maze.title": "めいきゅう",
-    "maze.placeholder": "たんさくは M4 でかいほうされます。",
     "temple.title": "カント じいん",
     // Inn
     "inn.title": "りゅうの やどや",

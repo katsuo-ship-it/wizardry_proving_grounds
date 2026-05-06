@@ -122,13 +122,12 @@ export const db = {
 
     let id: number;
     if (args.slotId === undefined) {
-      // biome-ignore lint/suspicious/noExplicitAny: idb autoIncrement add accepts value without id
       id = (await tx.objectStore("saveSlot").add({
         name: args.name,
         createdAt: now,
         updatedAt: now,
         gameState: serializeState(args.state),
-        // biome-ignore lint/suspicious/noExplicitAny: see above
+        // biome-ignore lint/suspicious/noExplicitAny: idb autoIncrement add accepts value without id
       } as any)) as number;
     } else {
       id = args.slotId;

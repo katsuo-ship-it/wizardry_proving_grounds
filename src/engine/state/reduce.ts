@@ -4,11 +4,11 @@ import { reduceCastle } from "./reduceCastle";
 import { reduceEdgeOfTown } from "./reduceEdgeOfTown";
 import { reduceInn } from "./reduceInn";
 import { reduceMaze } from "./reduceMaze";
-import { reducePlaceholder } from "./reducePlaceholder";
 import { reduceTavern } from "./reduceTavern";
 import { reduceTemple } from "./reduceTemple";
 import { reduceTitle } from "./reduceTitle";
 import { reduceTraining } from "./reduceTraining";
+import { reduceUtilities } from "./reduceUtilities";
 import type { GameEvent, GameState } from "./types";
 
 export function reduce(state: GameState, event: GameEvent): GameState {
@@ -34,7 +34,7 @@ export function reduce(state: GameState, event: GameEvent): GameState {
     case "temple":
       return reduceTemple(state, event);
     case "utilities":
-      return reducePlaceholder(state, event);
+      return reduceUtilities(state, event);
     default:
       return state;
   }

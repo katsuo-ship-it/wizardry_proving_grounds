@@ -1,5 +1,5 @@
 import { reduce } from "@/engine/state/reduce";
-import type { GameState } from "@/engine/state/types";
+import { EMPTY_PARTY, type GameState } from "@/engine/state/types";
 import { describe, expect, it } from "vitest";
 
 const initial: GameState = { phase: "title", sub: { kind: "main" } };
@@ -38,5 +38,37 @@ describe("title phase reducer", () => {
         status: "inTown",
       },
     });
+  });
+
+  it("continueGame from continueMenu → loading", () => {
+    const at: GameState = {
+      phase: "title",
+      sub: { kind: "continueMenu", slots: [{ id: 1, name: "X", createdAt: 0, updatedAt: 0 }] },
+    };
+    const next = reduce(at, { type: "continueGame", slotId: 1 });
+    expect(next).toEqual({
+      phase: "title",
+      sub: { kind: "loading", slotId: 1 },
+    });
+  });
+
+  it("loadSucceeded from loading → replaces state with loaded", () => {
+    const loading: GameState = {
+      phase: "title",
+      sub: { kind: "loading", slotId: 1 },
+    };
+    const loaded: GameState = {
+      phase: "edgeOfTown",
+      sub: { kind: "menu" },
+      party: EMPTY_PARTY,
+    };
+    const next = reduce(loading, { type: "loadSucceeded", state: loaded });
+    expect(next).toEqual(loaded);
+  });
+
+  it("closeContinueMenu from loadError → main", () => {
+    const at: GameState = { phase: "title", sub: { kind: "loadError", reason: "x" } };
+    const next = reduce(at, { type: "closeContinueMenu" });
+    expect(next).toEqual({ phase: "title", sub: { kind: "main" } });
   });
 });

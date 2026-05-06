@@ -9,33 +9,30 @@ import { useEffect, useState } from "react";
 const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
   gameStore.getState().dispatch(e);
 
-export function SavePicker() {
+export function RestartList() {
   const t = useT();
   const [slots, setSlots] = useState<SaveSlotInfo[]>([]);
 
   useEffect(() => {
+    // M5 範囲: 全スロットをリスト表示。OUT 状態判定は将来
     db.listSlots().then(setSlots);
   }, []);
 
   return (
     <div className="menu-screen">
-      <Frame title={t("temple.savePicker.title")}>
+      <Frame title={t("utilities.restart.title")}>
+        {slots.length === 0 && <p>{t("utilities.restart.empty")}</p>}
         <Menu
           items={[
-            {
-              hotkey: "N",
-              label: t("temple.savePicker.newSlot"),
-              onSelect: () => dispatch({ type: "pickSlot", slotId: "new" }),
-            },
             ...slots.map((slot, i) => ({
               hotkey: String(i + 1),
               label: `${slot.name}  (${new Date(slot.updatedAt).toLocaleString()})`,
-              onSelect: () => dispatch({ type: "pickSlot", slotId: slot.id }),
+              onSelect: () => dispatch({ type: "restartParty", slotId: slot.id }),
             })),
             {
-              hotkey: "X",
-              label: t("common.cancel"),
-              onSelect: () => dispatch({ type: "cancelSave" }),
+              hotkey: "B",
+              label: t("common.back"),
+              onSelect: () => dispatch({ type: "goBack" }),
             },
           ]}
         />

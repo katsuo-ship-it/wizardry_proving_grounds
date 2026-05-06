@@ -1,6 +1,0 @@
-.placeholder-body {
-  color: var(--color-warn);
-  font-size: var(--font-size-glyph);
-  margin: calc(2 * var(--vp)) 0;
-  text-align: center;
-}

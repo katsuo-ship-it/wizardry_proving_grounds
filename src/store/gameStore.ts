@@ -16,6 +16,8 @@ export interface GameStoreShape {
   isAnimating: boolean;
   isBusy: boolean;
   inputQueue: GameEvent[];
+  /** IndexedDB が利用可能か (M5 で health check 結果を反映) */
+  isStorageHealthy: boolean;
   dispatch: (event: GameEvent) => void;
 }
 
@@ -26,6 +28,7 @@ const initialState: Omit<GameStoreShape, "dispatch"> = {
   isAnimating: false,
   isBusy: false,
   inputQueue: [],
+  isStorageHealthy: true, // 初期値 true (bootstrap で確認後に false にしうる)
 };
 
 function flushQueue(api: StoreApi<GameStoreShape>): void {

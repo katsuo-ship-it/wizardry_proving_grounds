@@ -1,4 +1,4 @@
-import { EMPTY_PARTY, type Character, type GameState } from "@/engine/state/types";
+import { type Character, EMPTY_PARTY, type GameState } from "@/engine/state/types";
 import { db, resetDbInstance } from "@/persist/db";
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";

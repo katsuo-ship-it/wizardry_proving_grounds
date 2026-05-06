@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { useT } from "@/i18n/useT";
 import { gameStore } from "@/store/gameStore";
 import { Frame } from "@/ui/components/Frame";
 import { Menu } from "@/ui/components/Menu";
+import { useState } from "react";
 
 const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
   gameStore.getState().dispatch(e);

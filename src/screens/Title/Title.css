@@ -18,6 +18,17 @@
   min-width: calc(40 * var(--vp));
 }
 
+.title-warning {
+  color: var(--color-warn);
+  font-size: var(--font-size-glyph);
+  margin: calc(1 * var(--vp)) 0;
+  text-align: center;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
 .settings-heading {
   margin: 0 0 calc(1 * var(--vp)) 0;
   color: var(--color-accent);

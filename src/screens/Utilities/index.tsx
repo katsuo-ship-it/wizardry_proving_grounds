@@ -1,11 +1,10 @@
-import { Placeholder } from "@/screens/Placeholder";
+import { useGameStore } from "@/store/gameStore";
+import { RestartList } from "./RestartList";
+import { UtilitiesMenu } from "./UtilitiesMenu";
 
 export function Utilities() {
-  return (
-    <Placeholder
-      titleKey="utilities.title"
-      bodyKey="utilities.placeholder"
-      backLabelKey="common.back"
-    />
-  );
+  const sub = useGameStore((s) => (s.state.phase === "utilities" ? s.state.sub : null));
+  if (!sub) return null;
+  if (sub.kind === "restartList") return <RestartList />;
+  return <UtilitiesMenu />;
 }
