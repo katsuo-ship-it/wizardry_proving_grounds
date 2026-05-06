@@ -72,7 +72,7 @@ export function createGameStore(): StoreApi<GameStoreShape> {
         const safetyTimer = setTimeout(() => {
           set({ isBusy: false, inputQueue: [] });
         }, QUEUE_TIMEOUT_MS);
-        runEffect(effect, get().dispatch).finally(() => {
+        runEffect(effect, get().dispatch, () => get().state).finally(() => {
           clearTimeout(safetyTimer);
           set({ isBusy: false });
           flushQueue(store);

@@ -160,16 +160,28 @@ export type InnSubState =
 // Camp (M4)
 export type CampSubState = { kind: "menu" };
 
+// Temple (M5)
+export type TempleSubState =
+  | { kind: "menu" }
+  | { kind: "savePicker" }
+  | { kind: "saveNameInput"; slotId: SaveSlotId | undefined }
+  | { kind: "saving"; slotId: SaveSlotId | undefined; name: string }
+  | { kind: "saveDone"; slotId: SaveSlotId }
+  | { kind: "saveError"; reason: string };
+
+// Utilities (M5)
+export type UtilitiesSubState = { kind: "menu" } | { kind: "restartList" };
+
 // GameState union
 export type GameState =
   | { phase: "title"; sub: TitleSubState }
   | { phase: "edgeOfTown"; sub: EdgeOfTownSubState; party: PartyState }
   | { phase: "castle"; sub: SimpleSubState; party: PartyState }
   | { phase: "training"; sub: TrainingSubState; party: PartyState }
-  | { phase: "utilities"; sub: SimpleSubState; party: PartyState }
+  | { phase: "utilities"; sub: UtilitiesSubState; party: PartyState }
   | { phase: "tavern"; sub: TavernSubState; party: PartyState }
   | { phase: "boltac"; sub: BoltacSubState; party: PartyState }
-  | { phase: "temple"; sub: SimpleSubState; party: PartyState }
+  | { phase: "temple"; sub: TempleSubState; party: PartyState }
   | { phase: "inn"; sub: InnSubState; party: PartyState }
   | { phase: "maze"; pos: MazePosition; party: PartyState }
   | { phase: "camp"; sub: CampSubState; pos: MazePosition; party: PartyState };
@@ -245,9 +257,26 @@ export type GameEvent =
   // Camp (M4)
   | { type: "leaveCamp" }
   | { type: "quitToTown" }
-  // 非同期ライフサイクル (M5 で本格実装)
+  // Save/Load (M5)
+  | { type: "openSavePicker" }
+  | { type: "pickSlot"; slotId: SaveSlotId | "new" }
+  | { type: "inputSaveName"; name: string }
+  | { type: "confirmSave" }
+  | { type: "cancelSave" }
+  | { type: "saveStarted" }
+  | { type: "saveSucceeded"; slotId: SaveSlotId }
+  | { type: "saveFailed"; reason: string }
+  | { type: "dismissSaveResult" }
+  | { type: "loadSucceeded"; state: GameState }
+  | { type: "dismissLoadResult" }
+  | { type: "continueGame"; slotId: SaveSlotId }
+  | { type: "openRestartList" }
+  | { type: "restartParty"; slotId: SaveSlotId }
+  // 非同期ライフサイクル (既存 + 新規)
   | { type: "loadStarted"; slotId: SaveSlotId }
   | { type: "loadFailed"; reason: string };
 
 // 副作用
-export type Effect = { type: "load"; slotId: SaveSlotId };
+export type Effect =
+  | { type: "load"; slotId: SaveSlotId }
+  | { type: "save"; slotId: SaveSlotId | undefined; name: string };
