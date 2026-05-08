@@ -2,6 +2,49 @@
 
 ## [Unreleased]
 
+### Chapter 1 / L1 完全マップデータ - 2026-05-04
+
+#### Added
+
+- 20×20 完全な L1 マップデータ取り込み (M4 で延期した分の解消)
+- 出典: [davemoore22/sorcery](https://github.com/davemoore22/sorcery)
+  プロジェクトの `dat/maps.json` (Grid Cartographer 形式、GPL v2+)
+  経由で Wizardry I L1 (floor index = -1) を抽出
+- `scripts/import-l1-from-sorcery.mjs` — 一回限りの取り込みスクリプト
+  (再現性 / 監査用にリポジトリに保持)
+- 開始位置 (0, 19) 北向き = Castle 帰還用 stairsUp と一致
+- 下り階段、暗闇マス (38 セル)、テレポート (5 個) の座標確定
+  (Chapter 1 では効果なし、データのみ保持)
+- BFS 到達可能性テスト (開始位置から 100 セル以上に直接歩行で到達)
+- 特殊マスカウントテスト (darkness/spinner/teleport/stairsDown)
+
+#### Changed
+
+- M4 で導入した 4×4 テストマップを廃棄
+- 既存テスト (`movement.test.ts`, `reduceMaze.test.ts`,
+  `reduceEdgeOfTown.test.ts`, `segments.test.ts`) を新 startPosition
+  `(0, 19)` に合わせて書き直し
+- `docs/reference/wiz1/data-tables/maze-l1.md` を実データ確定状態に更新
+- `docs/chapters/1/open-questions.md`: Q-005 / Q-006 / Q-012 を解消マーク
+
+#### Notes
+
+- 信頼度 🟡 (二次ソース)。Pascal MAZEDATA からの一次抽出による 🟢 昇格は
+  将来課題
+- 一方向通路 (Grid Cartographer edge value 5/6/8/9) は本実装の対称型 edge
+  に合わせて双方向 door/secretDoor に簡略化 (Chapter 1 では効果差なし)
+- One Way Wall (7/10) と Secret Wall (13) は wall に簡略化
+- Pit / Elevator / Warp / Chute は SpecialTile = teleport に統合 (効果は
+  Chapter 2+ で実装)
+- Message / Notice / Ladder マーカーは取り込まず none (Q-011 保留、Pascal
+  抽出時に再検討)
+- 境界全周は強制 wall (Sorcery のトロイダルラップは非対応)
+
+#### Tests
+
+- 189 tests passing across 30 files (M5 から +5 件)
+- Bundle: 65.77 KB gzip JS (200 KB 目標内、+0.96 KB 増)
+
 ### Chapter 1 / M5 - 2026-05-04
 
 #### Added

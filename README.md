@@ -9,6 +9,7 @@ Apple II 版 Wizardry #1 "Proving Grounds of the Mad Overlord" (1981) のブラ�
 - ✅ **Chapter 1 / M3**: キャラ作成、Tavern パーティ編成、Boltac 売買、Inn (Stables)
 - ✅ **Chapter 1 / M4**: 迷宮 3D ワイヤーフレーム描画と歩行 (4x4 テストマップ、Camp、上り階段で脱出)
 - ✅ **Chapter 1 / M5**: IndexedDB セーブ/ロード (Temple)、Restart Out Party、Export/Import、ストレージ Health Check
+- ✅ **L1 完全マップデータ**: Sorcery プロジェクト経由で 20×20 を取り込み (M4 で延期した分の解消)
 - ⏳ **Chapter 1 / M6+**: i18n 仕上げ、設定画面、統合テスト
 - ⏳ **Chapter 2+**: 戦闘、呪文、レベルアップ、B2F〜B10F、ボス、エンディング
 
