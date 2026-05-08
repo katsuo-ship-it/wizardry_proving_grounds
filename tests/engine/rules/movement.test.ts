@@ -30,24 +30,25 @@ describe("canPassEdge", () => {
   it("wall is NOT passable", () => expect(canPassEdge("wall")).toBe(false));
 });
 
-describe("canMoveForward (from MAZE_L1)", () => {
-  it("(1,1) facing north → blocked (north edge is wall)", () => {
-    const pos: MazePosition = { level: 1, x: 1, y: 1, dir: "n" };
+describe("canMoveForward (from MAZE_L1, 20×20)", () => {
+  // 開始位置 (0, 19) からの移動可否を実データで確認
+  it("(0, 19) facing north → passable (north edge to (0, 18) is open)", () => {
+    const pos: MazePosition = { level: 1, x: 0, y: 19, dir: "n" };
+    expect(canMoveForward(MAZE_L1, pos)).toBe(true);
+  });
+
+  it("(0, 19) facing west → blocked (west boundary)", () => {
+    const pos: MazePosition = { level: 1, x: 0, y: 19, dir: "w" };
     expect(canMoveForward(MAZE_L1, pos)).toBe(false);
   });
 
-  it("(1,1) facing east → passable (east edge is open to (2,1))", () => {
-    const pos: MazePosition = { level: 1, x: 1, y: 1, dir: "e" };
-    expect(canMoveForward(MAZE_L1, pos)).toBe(true);
+  it("(0, 19) facing south → blocked (south boundary)", () => {
+    const pos: MazePosition = { level: 1, x: 0, y: 19, dir: "s" };
+    expect(canMoveForward(MAZE_L1, pos)).toBe(false);
   });
 
-  it("(1,1) facing south → passable (south edge is open to (1,2))", () => {
-    const pos: MazePosition = { level: 1, x: 1, y: 1, dir: "s" };
-    expect(canMoveForward(MAZE_L1, pos)).toBe(true);
-  });
-
-  it("(2,1) facing south → passable (door to (2,2))", () => {
-    const pos: MazePosition = { level: 1, x: 2, y: 1, dir: "s" };
+  it("(0, 19) facing east → passable (open corridor to (1, 19))", () => {
+    const pos: MazePosition = { level: 1, x: 0, y: 19, dir: "e" };
     expect(canMoveForward(MAZE_L1, pos)).toBe(true);
   });
 });

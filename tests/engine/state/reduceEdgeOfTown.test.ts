@@ -31,7 +31,7 @@ describe("edgeOfTown phase reducer", () => {
     const next = reduce(withMember, { type: "goToMaze" });
     expect(next.phase).toBe("maze");
     if (next.phase !== "maze") throw new Error("");
-    expect(next.pos).toEqual({ level: 1, x: 1, y: 1, dir: "n" });
+    expect(next.pos).toEqual({ level: 1, x: 0, y: 19, dir: "n" });
     expect(next.party.status).toBe("inMaze");
   });
 
