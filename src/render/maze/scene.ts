@@ -6,6 +6,7 @@ import {
   buildFloorGeometry,
   buildStairsGeometry,
   buildWallGeometry,
+  isEmptyGeometry,
 } from "./geom";
 import {
   ceilingMaterial,
@@ -38,14 +39,14 @@ export function buildScene(level: MazeLevel): Scene {
   scene.add(ceilMesh);
 
   const doorGeo = buildDoorGeometry(level);
-  if (doorGeo.getAttribute("position")) {
+  if (!isEmptyGeometry(doorGeo)) {
     const doorMesh = new Mesh(doorGeo, doorMaterial);
     doorMesh.name = "doors";
     scene.add(doorMesh);
   }
 
   const stairsGeo = buildStairsGeometry(level);
-  if (stairsGeo.getAttribute("position")) {
+  if (!isEmptyGeometry(stairsGeo)) {
     // 上り/下り の区別は MVP では up texture 統一 (将来 polish 時に分割検討)
     const stairsMesh = new Mesh(stairsGeo, createStairsMaterial(makeStairsTexture("up")));
     stairsMesh.name = "stairs";

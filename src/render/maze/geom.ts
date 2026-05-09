@@ -149,6 +149,16 @@ export function buildDoorGeometry(level: MazeLevel): BufferGeometry {
   return mergeOrEmpty(planes);
 }
 
+// --- Empty geometry check ---
+
+/**
+ * Returns true if the geometry has no position attribute (i.e. was built from an empty list).
+ * Use this instead of `geo.getAttribute("position")` directly to make the intent explicit.
+ */
+export function isEmptyGeometry(g: BufferGeometry): boolean {
+  return !g.getAttribute("position");
+}
+
 // --- Stairs helpers ---
 
 /**
