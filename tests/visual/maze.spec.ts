@@ -107,6 +107,17 @@ for (const v of VIEWPOINTS) {
         { timeout: 5000 },
       );
 
+      // Two-frame RAF wait: rafId starts at 0 so isMazeAnimating is false before the
+      // first RAF tick fires. On slow CI runners this could capture a partial frame
+      // where texture uploads / shader compiles haven't flushed yet.
+      // First RAF lets the browser process pending GL work; second lets it composite.
+      await page.evaluate(
+        () =>
+          new Promise<void>((r) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => r())),
+          ),
+      );
+
       const canvas = page.locator(".maze-canvas");
       await expect(canvas).toHaveScreenshot(`${v.name}-${dir}.png`);
     });

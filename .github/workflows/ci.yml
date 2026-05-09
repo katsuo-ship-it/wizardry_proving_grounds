@@ -46,6 +46,7 @@ jobs:
           if ls tests/visual/__snapshots__/maze.spec.ts-snapshots/*-linux.png 2>/dev/null | head -1 | grep -q .; then
             pnpm test:visual
           else
+            echo "::warning::Bootstrap snapshot run — generating baselines, NOT regression-testing. Review the linux-baselines artifact before merging."
             echo "No Linux baselines found — generating initial snapshots (bootstrap run)"
             pnpm test:visual:update
           fi
