@@ -1,5 +1,11 @@
 import type { MazeLevel } from "@/engine/data/maze/types";
-import { Mesh, type MeshLambertMaterial, PerspectiveCamera, WebGLRenderer } from "three";
+import {
+  LineSegments,
+  Mesh,
+  type MeshLambertMaterial,
+  PerspectiveCamera,
+  WebGLRenderer,
+} from "three";
 import { buildScene } from "./scene";
 import type { CameraTarget } from "./types";
 
@@ -44,6 +50,9 @@ export function mountView(canvas: HTMLCanvasElement, level: MazeLevel): ViewHand
             mm.dispose();
           }
         }
+      } else if (obj instanceof LineSegments) {
+        // EdgesGeometry は per-mount。material (edgeMaterial) は singleton なので破棄しない。
+        obj.geometry.dispose();
       }
     });
     renderer.dispose();

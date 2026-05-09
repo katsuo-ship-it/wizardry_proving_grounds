@@ -1,5 +1,13 @@
 import type { MazeLevel } from "@/engine/data/maze/types";
-import { AmbientLight, DirectionalLight, Fog, Mesh, Scene } from "three";
+import {
+  AmbientLight,
+  DirectionalLight,
+  EdgesGeometry,
+  Fog,
+  LineSegments,
+  Mesh,
+  Scene,
+} from "three";
 import {
   buildCeilingGeometry,
   buildDoorGeometry,
@@ -12,6 +20,7 @@ import {
   ceilingMaterial,
   createStairsMaterial,
   doorMaterial,
+  edgeMaterial,
   floorMaterial,
   wallMaterial,
 } from "./materials";
@@ -26,9 +35,15 @@ export function buildScene(level: MazeLevel): Scene {
   dir.position.set(0.5, 2, 0.5);
   scene.add(dir);
 
-  const wallMesh = new Mesh(buildWallGeometry(level), wallMaterial);
+  const wallGeo = buildWallGeometry(level);
+  const wallMesh = new Mesh(wallGeo, wallMaterial);
   wallMesh.name = "walls";
   scene.add(wallMesh);
+
+  // 壁の白フレーム輪郭線 (視認性向上、Apple II 原典の wireframe 感も少し戻す)
+  const wallEdges = new LineSegments(new EdgesGeometry(wallGeo), edgeMaterial);
+  wallEdges.name = "wallEdges";
+  scene.add(wallEdges);
 
   const floorMesh = new Mesh(buildFloorGeometry(level), floorMaterial);
   floorMesh.name = "floor";
@@ -43,6 +58,10 @@ export function buildScene(level: MazeLevel): Scene {
     const doorMesh = new Mesh(doorGeo, doorMaterial);
     doorMesh.name = "doors";
     scene.add(doorMesh);
+    // 扉も同じく輪郭線
+    const doorEdges = new LineSegments(new EdgesGeometry(doorGeo), edgeMaterial);
+    doorEdges.name = "doorEdges";
+    scene.add(doorEdges);
   }
 
   const stairsGeo = buildStairsGeometry(level);
