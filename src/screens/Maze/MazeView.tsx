@@ -51,6 +51,10 @@ function MazeViewInner({ pos }: { pos: MazePosition }) {
   useEffect(() => {
     if (!viewRef.current || !animatorRef.current) return;
     const last = lastPosRef.current;
+    // Skip when pos has not actually changed (covers initial mount and no-op dispatches)
+    if (last && last.x === pos.x && last.y === pos.y && last.dir === pos.dir) {
+      return;
+    }
     if (!last) {
       lastPosRef.current = pos;
       return;
