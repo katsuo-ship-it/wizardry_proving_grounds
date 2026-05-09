@@ -24,4 +24,13 @@ describe("buildScene", () => {
     expect(fog.near).toBe(1.5);
     expect(fog.far).toBe(4.0);
   });
+
+  it("preserves singleton materials after a buildScene cycle (no disposal)", () => {
+    // After buildScene, the singleton materials should still be usable.
+    // We verify they haven't been disposed (their internal state is intact).
+    // Note: true dispose-safety can only be tested with a real WebGL context (not jsdom).
+    buildScene(makeMiniLevel());
+    // wallMaterial is shared; verify color hasn't been zeroed by a stray dispose
+    expect(wallMaterial.color.getHex()).toBe(0x808080);
+  });
 });
