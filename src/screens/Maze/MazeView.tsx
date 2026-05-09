@@ -1,6 +1,8 @@
 import { MAZE_L1 } from "@/engine/data/maze/level1";
+import type { MazePosition } from "@/engine/state/types";
 import { useT } from "@/i18n/useT";
-import { renderMazeView } from "@/render/maze/render";
+import { CameraAnimator, targetFromPosition } from "@/render/maze/camera";
+import { mountView } from "@/render/maze/view";
 import { gameStore, useGameStore } from "@/store/gameStore";
 import { useEffect, useRef } from "react";
 import "./Maze.css";
@@ -8,25 +10,65 @@ import "./Maze.css";
 const dispatch = (e: Parameters<ReturnType<typeof gameStore.getState>["dispatch"]>[0]) =>
   gameStore.getState().dispatch(e);
 
-export function MazeView() {
-  const t = useT();
-  const pos = useGameStore((s) => (s.state.phase === "maze" ? s.state.pos : null));
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+const FORWARD_MS = 150;
+const TURN_MS = 200;
 
-  // Canvas 描画 (state 変化時のみ)
+export function MazeView() {
+  const pos = useGameStore((s) => (s.state.phase === "maze" ? s.state.pos : null));
+  if (!pos) return null;
+  return <MazeViewInner pos={pos} />;
+}
+
+function MazeViewInner({ pos }: { pos: MazePosition }) {
+  const t = useT();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const viewRef = useRef<ReturnType<typeof mountView> | null>(null);
+  const animatorRef = useRef<CameraAnimator | null>(null);
+  const lastPosRef = useRef<MazePosition | null>(null);
+
+  // Three.js View 初期化 — pos が必ず非 null なので unconditional
   useEffect(() => {
-    if (!pos) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    renderMazeView(ctx, MAZE_L1, pos);
+    const view = mountView(canvas, MAZE_L1);
+    const initial = targetFromPosition(pos);
+    view.setTarget(initial);
+    view.render();
+    viewRef.current = view;
+    animatorRef.current = new CameraAnimator(initial);
+    lastPosRef.current = pos;
+    return () => {
+      view.dispose();
+      animatorRef.current?.cancel();
+      viewRef.current = null;
+      animatorRef.current = null;
+    };
+    // pos は初期 mount 時にのみ参照、以降は次の useEffect が処理
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // pos 変化に応じて補間アニメーション
+  useEffect(() => {
+    if (!viewRef.current || !animatorRef.current) return;
+    const last = lastPosRef.current;
+    if (!last) {
+      lastPosRef.current = pos;
+      return;
+    }
+    const target = targetFromPosition(pos);
+    const isTurn = last.x === pos.x && last.y === pos.y && last.dir !== pos.dir;
+    const duration = isTurn ? TURN_MS : FORWARD_MS;
+    animatorRef.current.animateTo(target, duration, (frame) => {
+      viewRef.current?.setTarget(frame);
+      viewRef.current?.render();
+    });
+    lastPosRef.current = pos;
   }, [pos]);
 
-  // キー入力
+  // キー入力 (旧コードからそのまま継承)
   useEffect(() => {
     function handler(e: KeyboardEvent): void {
-      if (e.repeat) return; // 連打抑制
+      if (e.repeat) return;
       switch (e.key) {
         case "ArrowUp":
         case "w":
@@ -66,8 +108,6 @@ export function MazeView() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
-
-  if (!pos) return null;
 
   return (
     <div className="maze-screen">
