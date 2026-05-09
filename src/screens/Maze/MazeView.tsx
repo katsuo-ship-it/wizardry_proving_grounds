@@ -52,7 +52,13 @@ function MazeViewInner({ pos }: { pos: MazePosition }) {
     if (!viewRef.current || !animatorRef.current) return;
     const last = lastPosRef.current;
     // Skip when pos has not actually changed (covers initial mount and no-op dispatches)
-    if (last && last.x === pos.x && last.y === pos.y && last.dir === pos.dir) {
+    if (
+      last &&
+      last.level === pos.level &&
+      last.x === pos.x &&
+      last.y === pos.y &&
+      last.dir === pos.dir
+    ) {
       return;
     }
     if (!last) {
