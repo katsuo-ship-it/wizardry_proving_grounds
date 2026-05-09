@@ -38,11 +38,23 @@ function MazeViewInner({ pos }: { pos: MazePosition }) {
     viewRef.current = view;
     animatorRef.current = new CameraAnimator(initial);
     lastPosRef.current = pos;
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      // @ts-expect-error global extension for tests only
+      window.__wpgDev = {
+        // @ts-expect-error merge existing devEnterMazeAt registered in gameStore.ts
+        ...(window.__wpgDev ?? {}),
+        isMazeAnimating: () => animatorRef.current?.isAnimating ?? false,
+      };
+    }
     return () => {
       view.dispose();
       animatorRef.current?.cancel();
       viewRef.current = null;
       animatorRef.current = null;
+      if (import.meta.env.DEV && typeof window !== "undefined") {
+        // @ts-expect-error global extension for tests only
+        (window.__wpgDev as { isMazeAnimating?: unknown }).isMazeAnimating = undefined;
+      }
     };
     // pos は初期 mount 時にのみ参照、以降は次の useEffect が処理
   }, []);
