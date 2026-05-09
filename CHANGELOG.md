@@ -2,6 +2,64 @@
 
 ## [Unreleased]
 
+### Chapter 1 / 迷宮 3D 描画再設計 (Q-014) - 2026-05-10
+
+#### Added
+
+- Three.js ベースの新しい迷宮 3D レンダラ
+  (`src/render/maze/{camera,geom,materials,overlay,scene,view,types}.ts`)
+- 5 つの merged BufferGeometry: 壁/床/天井/扉/階段マーカー (= 5 draw call)
+  L1 全マップ静的 mesh + frustum culling
+- `MeshLambertMaterial` + `Fog`(near=3.0, far=8.0, black) +
+  `AmbientLight`(0.7) + `DirectionalLight`(0.8) で shaded surfaces
+- 白フレーム輪郭線 (EdgesGeometry + LineSegments) で視認性向上
+  (Apple II 原典 wireframe 感も少し戻す)
+- カメラ滑らか補間 (`CameraAnimator`、easeInOutQuad、
+  前進 150ms / 回転 200ms、中断時は現在補間値から再スタート)
+- 階段マーカー (床上に上向き三角の `CanvasTexture`、
+  上り/下りとも同じ texture を使用 — MVP)
+- Playwright スクリーンショット回帰テスト
+  (8 視点 × 4 方向 = 32 baseline、`tests/visual/maze.spec.ts`)
+- DEV 専用 debug API
+  (`window.__wpgDev.devEnterMazeAt` / `isMazeAnimating`) —
+  テスト専用、production では no-op
+- CI に Playwright step 追加 (Chromium キャッシュ、
+  初回ブートストラップで baseline 自動生成 + GitHub Actions warning でフラグ)
+
+#### Changed
+
+- `src/screens/Maze/MazeView.tsx` を outer/inner split に再構成
+  (StrictMode/null guard 安全化、phantom animation 短絡)
+- ルート設計書 `docs/superpowers/specs/2026-05-04-wizardry-proving-grounds-design.md`
+  Section 5 を新方式の 16 行サマリに書き換え
+  (詳細は 2026-05-09 設計書へ参照)
+
+#### Removed
+
+- 旧 per-cell rect wireframe renderer
+  (`src/render/maze/{render,segments,viewport,wireframeTable}.ts` + 2 tests)
+- orphan `src/render/canvas/draw.ts`
+- 旧型 `LineSegment` / `SegmentSet` / `WireframeTable`
+  (`src/render/maze/types.ts` から)
+
+#### Notes
+
+- Q-014 解決: 連続壁の境界で線が中途半端に途切れる構造的描画バグを根本解消
+- `wip/maze-render-polish-attempt` ブランチは参考用に残置 (削除しない)
+- 当初 brainstorming では range-scan 方式 (純 2D) を候補としたが、
+  最終的に Three.js + Shaded Walls (3D エンジン) に方向転換
+- 配色 (`materials.ts` の hex 値) と Fog 範囲 (`scene.ts` の Fog near/far) は
+  手動プレイテスト中の調整で決定。今後 polish 余地あり
+
+#### Tests
+
+- 210 tests passing across 31 files (旧 189 → +21)
+- 32 Playwright screenshot tests
+  (Linux baselines を CI 初回 run で生成 — ローカル Windows では skip)
+- Bundle: 195.53 KB gzip JS (spec target 220 KB 以下; 3D エンジン追加で
+  65.77 → 195.53 KB)
+- typecheck / build clean; lint エラーは既存の CRLF 問題のみ (新規なし)
+
 ### Chapter 1 / L1 完全マップデータ - 2026-05-04
 
 #### Added
