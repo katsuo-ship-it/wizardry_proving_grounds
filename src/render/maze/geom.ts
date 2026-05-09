@@ -5,6 +5,15 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 
 const WALL_HEIGHT = 1;
 
+// --- Merge helper ---
+
+function mergeOrEmpty(planes: PlaneGeometry[]): BufferGeometry {
+  if (planes.length === 0) return new BufferGeometry();
+  const merged = mergeGeometries(planes, false);
+  for (const p of planes) p.dispose();
+  return merged;
+}
+
 // --- Wall helpers ---
 
 function makeNorthWall(x: number, y: number): PlaneGeometry {
@@ -47,9 +56,7 @@ export function buildWallGeometry(level: MazeLevel): BufferGeometry {
       }
     }
   }
-  const merged = mergeGeometries(planes, false);
-  for (const p of planes) p.dispose();
-  return merged;
+  return mergeOrEmpty(planes);
 }
 
 // --- Floor helpers ---
@@ -74,9 +81,7 @@ export function buildFloorGeometry(level: MazeLevel): BufferGeometry {
       planes.push(makeFloor(x, y));
     }
   }
-  const merged = mergeGeometries(planes, false);
-  for (const p of planes) p.dispose();
-  return merged;
+  return mergeOrEmpty(planes);
 }
 
 // --- Ceiling helpers ---
@@ -101,9 +106,7 @@ export function buildCeilingGeometry(level: MazeLevel): BufferGeometry {
       planes.push(makeCeiling(x, y));
     }
   }
-  const merged = mergeGeometries(planes, false);
-  for (const p of planes) p.dispose();
-  return merged;
+  return mergeOrEmpty(planes);
 }
 
 // --- Door helpers ---
@@ -143,10 +146,7 @@ export function buildDoorGeometry(level: MazeLevel): BufferGeometry {
       }
     }
   }
-  if (planes.length === 0) return new BufferGeometry();
-  const merged = mergeGeometries(planes, false);
-  for (const p of planes) p.dispose();
-  return merged;
+  return mergeOrEmpty(planes);
 }
 
 // --- Stairs helpers ---
@@ -172,8 +172,5 @@ export function buildStairsGeometry(level: MazeLevel): BufferGeometry {
       }
     }
   }
-  if (planes.length === 0) return new BufferGeometry();
-  const merged = mergeGeometries(planes, false);
-  for (const p of planes) p.dispose();
-  return merged;
+  return mergeOrEmpty(planes);
 }
