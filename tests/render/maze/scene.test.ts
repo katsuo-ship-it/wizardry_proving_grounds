@@ -17,12 +17,12 @@ describe("buildScene", () => {
     expect(walls.material).toBe(wallMaterial);
   });
 
-  it("has Fog with 1.5..4.0 black", () => {
+  it("has Fog with 3.0..8.0 black", () => {
     const scene = buildScene(makeMiniLevel());
     expect(scene.fog).toBeDefined();
     const fog = scene.fog as Fog;
-    expect(fog.near).toBe(1.5);
-    expect(fog.far).toBe(4.0);
+    expect(fog.near).toBe(3.0);
+    expect(fog.far).toBe(8.0);
   });
 
   it("preserves singleton materials after a buildScene cycle (no disposal)", () => {
@@ -31,6 +31,6 @@ describe("buildScene", () => {
     // Note: true dispose-safety can only be tested with a real WebGL context (not jsdom).
     buildScene(makeMiniLevel());
     // wallMaterial is shared; verify color hasn't been zeroed by a stray dispose
-    expect(wallMaterial.color.getHex()).toBe(0x808080);
+    expect(wallMaterial.color.getHex()).toBe(0xa0a0a0);
   });
 });

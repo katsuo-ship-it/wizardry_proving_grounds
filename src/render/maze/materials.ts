@@ -1,7 +1,7 @@
 import { DoubleSide, MeshLambertMaterial } from "three";
 import type { CanvasTexture } from "three";
 
-export const wallMaterial = new MeshLambertMaterial({ color: 0x808080, side: DoubleSide });
+export const wallMaterial = new MeshLambertMaterial({ color: 0xa0a0a0, side: DoubleSide });
 export const floorMaterial = new MeshLambertMaterial({ color: 0x303030 });
 export const ceilingMaterial = new MeshLambertMaterial({ color: 0x202020 });
 export const doorMaterial = new MeshLambertMaterial({ color: 0x603020, side: DoubleSide });

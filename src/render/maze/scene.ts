@@ -19,10 +19,10 @@ import { makeStairsTexture } from "./overlay";
 
 export function buildScene(level: MazeLevel): Scene {
   const scene = new Scene();
-  scene.fog = new Fog(0x000000, 1.5, 4.0);
+  scene.fog = new Fog(0x000000, 3.0, 8.0);
 
-  scene.add(new AmbientLight(0x404060, 0.4));
-  const dir = new DirectionalLight(0xa0a0c0, 0.6);
+  scene.add(new AmbientLight(0x404060, 0.7));
+  const dir = new DirectionalLight(0xa0a0c0, 0.8);
   dir.position.set(0.5, 2, 0.5);
   scene.add(dir);
 
