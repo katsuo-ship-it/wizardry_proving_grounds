@@ -90,8 +90,9 @@ src/render/maze/                 (全置換)
 
 ### 座標系
 - ワールド座標 = グリッド座標 × `CELL_SIZE` (= 1.0、単純化のため単位 = 1 セル)
-- グリッド: x = 東方向 (+)、y = 北方向 (+) → Three.js では x = 東、**z = 北 (= -y)** にマップ
-- Y 軸は上向き (高さ)
+- TS グリッド: x = 東方向 (+)、**y = 南方向 (+)** (y=0 が北端、y=19 が南端 — `level1.ts` 既存規約)
+- Three.js: x = TS x (東 +)、z = TS y (南 +)、Y 軸 = 上向き (高さ)
+- 北向き = camera が `-z` 方向を見る。具体例: TS 座標 (0, 19) 北向き → camera 位置 `(0.5, 0.5, 19.5)`、`lookAt(0.5, 0.5, 18.5)`
 - 壁の高さ = `WALL_HEIGHT = 1.0` (= 1 セル分、立方空間)
 
 ### Geometry 単位
@@ -115,7 +116,8 @@ L1 (20×20) で予想される draw call: 壁 1 / 床 1 / 天井 1 / 扉 1 / 階
 
 - `PerspectiveCamera(fov=75, aspect=280/192, near=0.05, far=10)`
 - 位置 = `(playerX + 0.5, 0.5, playerY + 0.5)` (セル中央、目線高さ = 0.5)
-- 向き = playerDir に応じた `lookAt`
+- 向き = playerDir に応じた `lookAt` (北なら `lookAt(x, 0.5, z - 1)`、東なら `lookAt(x + 1, 0.5, z)` など)
+- `far = 10` は Fog 完全黒距離 (4.0) を十分包含。タイトに絞る (`far = 5`) 検討は実装後の余地として残す
 
 ### Pure 関数化
 
@@ -317,6 +319,7 @@ for y in 0..19, x in 0..19:
 - `.github/workflows/ci.yml` の既存 vitest step の後に `playwright test --reporter=line` を追加
 - 既存 CI 40 秒 → 想定 ~80〜90 秒に延長 (Chromium 起動 + 32 screenshot)
 - baseline はリポジトリにコミット (`tests/visual/__snapshots__/`)
+- **Baseline は Linux (ubuntu-latest) でのみ生成・更新する**。Windows / macOS 開発者がローカルで `--update-snapshots` した結果はコミット禁止 (フォントレンダリング差で baseline が荒れるため)。CONTRIBUTING に明記し、playwright config の `snapshotDir` をプラットフォームごとに分けるか `playwright-linux/` に固定する
 
 ### 9.6 テストしない領域
 
