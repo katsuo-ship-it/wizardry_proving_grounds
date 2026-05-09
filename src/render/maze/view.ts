@@ -1,5 +1,5 @@
 import type { MazeLevel } from "@/engine/data/maze/types";
-import { Mesh, MeshLambertMaterial, PerspectiveCamera, WebGLRenderer } from "three";
+import { Mesh, type MeshLambertMaterial, PerspectiveCamera, WebGLRenderer } from "three";
 import { buildScene } from "./scene";
 import type { CameraTarget } from "./types";
 

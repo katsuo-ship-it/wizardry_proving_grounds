@@ -27,6 +27,7 @@ function MazeViewInner({ pos }: { pos: MazePosition }) {
   const lastPosRef = useRef<MazePosition | null>(null);
 
   // Three.js View 初期化 — pos が必ず非 null なので unconditional
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-only effect; pos captured for initial camera position only
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -44,7 +45,6 @@ function MazeViewInner({ pos }: { pos: MazePosition }) {
       animatorRef.current = null;
     };
     // pos は初期 mount 時にのみ参照、以降は次の useEffect が処理
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // pos 変化に応じて補間アニメーション
