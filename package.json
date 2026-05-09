@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "lint": "biome check src tests",
     "format": "biome format --write src tests",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "idb": "^8.0.0",
