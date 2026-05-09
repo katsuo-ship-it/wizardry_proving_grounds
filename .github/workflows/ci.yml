@@ -21,3 +21,43 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # Playwright visual regression
+      - name: Get Playwright version
+        id: pw-version
+        run: |
+          PW_VERSION=$(node -p "require('./package.json').devDependencies['@playwright/test'].replace('^','')")
+          echo "version=$PW_VERSION" >> $GITHUB_OUTPUT
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
+      - name: Install Playwright browsers (if not cached)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright system deps (when cached)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      # Bootstrap baselines on first CI run (no linux PNGs committed yet),
+      # then run normally for regression detection.
+      - name: Run visual tests (update-snapshots if no linux baselines committed)
+        run: |
+          if ls tests/visual/__snapshots__/maze.spec.ts-snapshots/*-linux.png 2>/dev/null | head -1 | grep -q .; then
+            pnpm test:visual
+          else
+            echo "No Linux baselines found — generating initial snapshots (bootstrap run)"
+            pnpm test:visual:update
+          fi
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+      - name: Upload Linux baselines (bootstrap or on update)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-baselines
+          path: tests/visual/__snapshots__/
+          if-no-files-found: ignore
