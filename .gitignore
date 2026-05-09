@@ -17,3 +17,6 @@ vitest.config.js
 
 # brainstorming visual companion session files
 .superpowers/
+
+# git worktrees
+.worktrees/
