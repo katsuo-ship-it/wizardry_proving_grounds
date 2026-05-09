@@ -49,8 +49,10 @@ export class CameraAnimator {
 
   constructor(
     initial: CameraTarget,
-    raf: Raf = requestAnimationFrame,
-    cancelRaf: CancelRaf = cancelAnimationFrame,
+    // window 結合を保つため arrow でラップ。素のまま渡すと this.raf(...) で
+    // "Illegal invocation" になる (requestAnimationFrame は window メソッド)
+    raf: Raf = (cb) => requestAnimationFrame(cb),
+    cancelRaf: CancelRaf = (id) => cancelAnimationFrame(id),
     now: () => number = () => performance.now(),
   ) {
     this.current = initial;
