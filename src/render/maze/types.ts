@@ -24,3 +24,12 @@ export interface SegmentSet {
 }
 
 export type WireframeTable = Record<Depth, Record<RelPos, SegmentSet>>;
+
+// === Three.js 移行用の新型 (Phase 8 で旧型を全削除) ===
+
+export type Yaw = number; // ラジアン、0 = 北、+π/2 = 東
+
+export interface CameraTarget {
+  pos: { x: number; y: number }; // ワールド座標 (= grid + 0.5)
+  yaw: Yaw;
+}
