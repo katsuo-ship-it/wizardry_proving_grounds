@@ -116,3 +116,69 @@ describe("save/load atomic", () => {
     expect(await db.listCharacters(1)).toHaveLength(1);
   });
 });
+
+describe("listSlots party status extraction", () => {
+  beforeEach(async () => {
+    resetDbInstance();
+    indexedDB.deleteDatabase("wizardry-proving-grounds");
+    await db.init();
+  });
+
+  it("includes partyStatus + outAtPosition extracted from gameState", async () => {
+    // 3 つのスロットを作成: inTown / inMaze / out
+    const stateInTown: GameState = {
+      phase: "edgeOfTown",
+      sub: { kind: "menu" },
+      party: { ...EMPTY_PARTY, status: "inTown" },
+    };
+    const stateInMaze: GameState = {
+      phase: "maze",
+      pos: { level: 1, x: 0, y: 19, dir: "n" },
+      party: { ...EMPTY_PARTY, status: "inMaze" },
+    };
+    const outPos = { level: 1, x: 5, y: 10, dir: "e" } as const;
+    const stateOut: GameState = {
+      phase: "edgeOfTown",
+      sub: { kind: "menu" },
+      party: { ...EMPTY_PARTY, status: "out", outAtPosition: outPos },
+    };
+
+    await db.saveStateAtomic({
+      slotId: undefined,
+      name: "Town",
+      state: stateInTown,
+      changedCharacters: [],
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    await db.saveStateAtomic({
+      slotId: undefined,
+      name: "Maze",
+      state: stateInMaze,
+      changedCharacters: [],
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    await db.saveStateAtomic({
+      slotId: undefined,
+      name: "Out",
+      state: stateOut,
+      changedCharacters: [],
+    });
+
+    const slots = await db.listSlots();
+    expect(slots).toHaveLength(3);
+
+    const out = slots.find((s) => s.name === "Out");
+    const maze = slots.find((s) => s.name === "Maze");
+    const town = slots.find((s) => s.name === "Town");
+    if (!out || !maze || !town) throw new Error("missing slot");
+
+    expect(out.partyStatus).toBe("out");
+    expect(out.outAtPosition).toEqual(outPos);
+
+    expect(maze.partyStatus).toBe("inMaze");
+    expect(maze.outAtPosition).toBeUndefined();
+
+    expect(town.partyStatus).toBe("inTown");
+    expect(town.outAtPosition).toBeUndefined();
+  });
+});

@@ -87,7 +87,35 @@ export const db = {
     const idb = await openWizardryDB();
     const all = await idb.getAll("saveSlot");
     return all
-      .map(({ id, name, createdAt, updatedAt }) => ({ id, name, createdAt, updatedAt }))
+      .map(({ id, name, createdAt, updatedAt, gameState }) => {
+        // 1 スロットの deserialize 失敗が他をブロックしないよう個別に try/catch。
+        // 失敗時は安全な inTown フォールバック (= Restart リストには出ない)。
+        try {
+          const state = deserializeState(gameState);
+          // GameState union: phase:"title" has no party field — use type-safe narrowing.
+          const party = "party" in state ? state.party : undefined;
+          const partyStatus = party?.status ?? "inTown";
+          // exactOptionalPropertyTypes: omit outAtPosition key entirely when not "out".
+          return {
+            id,
+            name,
+            createdAt,
+            updatedAt,
+            partyStatus,
+            ...(party?.outAtPosition !== undefined
+              ? { outAtPosition: party.outAtPosition }
+              : {}),
+          };
+        } catch {
+          return {
+            id,
+            name,
+            createdAt,
+            updatedAt,
+            partyStatus: "inTown" as const,
+          };
+        }
+      })
       .sort((a, b) => b.updatedAt - a.updatedAt);
   },
 
