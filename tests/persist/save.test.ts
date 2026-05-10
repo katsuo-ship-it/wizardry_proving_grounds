@@ -1,5 +1,5 @@
 import { type Character, EMPTY_PARTY, type GameState } from "@/engine/state/types";
-import { db, resetDbInstance } from "@/persist/db";
+import { db, openWizardryDB, resetDbInstance } from "@/persist/db";
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -74,6 +74,7 @@ describe("save/load atomic", () => {
     const slots = await db.listSlots();
     expect(slots).toHaveLength(2);
     expect(slots[0]?.name).toBe("Second");
+    expect(slots.every((s) => s.partyStatus === "inTown")).toBe(true);
   });
 
   it("deleteSlot removes the slot and its characters", async () => {
@@ -180,5 +181,48 @@ describe("listSlots party status extraction", () => {
 
     expect(town.partyStatus).toBe("inTown");
     expect(town.outAtPosition).toBeUndefined();
+  });
+
+  it("falls back to inTown for slots with malformed gameState", async () => {
+    // Create a valid slot first via the public API so the schema/version is correct
+    await db.saveStateAtomic({
+      slotId: undefined,
+      name: "Valid",
+      state: {
+        phase: "edgeOfTown",
+        sub: { kind: "menu" },
+        party: { ...EMPTY_PARTY, status: "out", outAtPosition: { level: 1, x: 0, y: 0, dir: "n" } },
+      },
+      changedCharacters: [],
+    });
+
+    // Then directly corrupt one slot's gameState in IndexedDB to simulate
+    // schema drift / hand-edited save / partial write recovery.
+    const idb = await openWizardryDB();
+    const tx = idb.transaction("saveSlot", "readwrite");
+    const store = tx.objectStore("saveSlot");
+    // biome-ignore lint/suspicious/noExplicitAny: idb.add accepts value without id
+    await store.add({
+      name: "Corrupt",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      gameState: "{not valid json",
+    } as any);
+    await tx.done;
+
+    const slots = await db.listSlots();
+    expect(slots).toHaveLength(2);
+
+    const valid = slots.find((s) => s.name === "Valid");
+    const corrupt = slots.find((s) => s.name === "Corrupt");
+    if (!valid || !corrupt) throw new Error("missing slot");
+
+    // Valid slot deserializes fine
+    expect(valid.partyStatus).toBe("out");
+    expect(valid.outAtPosition).toEqual({ level: 1, x: 0, y: 0, dir: "n" });
+
+    // Corrupt slot falls back to inTown, no outAtPosition
+    expect(corrupt.partyStatus).toBe("inTown");
+    expect(corrupt.outAtPosition).toBeUndefined();
   });
 });
