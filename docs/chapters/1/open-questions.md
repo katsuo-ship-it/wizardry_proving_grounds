@@ -18,12 +18,7 @@
 - [x] **Q-006**: L1 の暗闇マス座標 → 38 セル、Sorcery データから取り込み確定 (2026-05-04)
 - [ ] **Q-011**: L1 のメッセージ文言 (英語 / 日本語ローカライズ用) — 保留 (Pascal 抽出時に再検討)
 - [x] **Q-012**: 開始位置の正確な座標 → (0, 19) TS 座標 = 画像 (0, 0)、北向き、stairsUp で確定 (2026-05-04)
-- [ ] **Q-014**: 迷宮 3D ワイヤーフレーム描画アルゴリズムの再設計 (2026-05-04 提起)。
-  M4 で実装した「各 depth 個別の rect 上下遠近線」方式は、連続壁の境界で線が中途半端
-  に途切れる根本問題があり、L1 完全データでの手動プレイテストで判明。次タスクとして
-  brainstorm から仕切り直し、**range-scan 方式** (連続壁を 1 つの台形で描画) で再設計予定。
-  暫定 polish の試行は `wip/maze-render-polish-attempt` ブランチに保管 (commit `0c836fc`)。
-  現在の main の描画は M4 暫定品質のまま。
+- [x] **Q-014**: 迷宮 3D ワイヤーフレーム描画アルゴリズムの再設計 → 解決済 (2026-05-10)
 
 ## 職業
 
@@ -46,6 +41,18 @@
 ## 解決済
 
 (解決した Q を移動して履歴を残す)
+
+### ✅ Q-014 (解決日: 2026-05-10)
+- 解決方法: per-cell rect 方式を全廃し、Three.js + Shaded Walls による
+  3D 描画に移行
+- 反映:
+  - spec `docs/superpowers/specs/2026-05-09-maze-3d-render-redesign-design.md`
+  - plan `docs/superpowers/plans/2026-05-09-maze-3d-render-redesign.md`
+  - 実装 PR: feature/maze-3d-render ブランチ全体
+- Notes:
+  - `wip/maze-render-polish-attempt` ブランチは参考用に残置
+  - 当初候補だった range-scan 方式は brainstorming 中にユーザーが Three.js
+    路線を再選択して却下
 
 ## 解決方法のメモ
 

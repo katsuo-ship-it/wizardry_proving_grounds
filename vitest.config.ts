@@ -13,9 +13,8 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
-    // 他 worktree (.worktrees/*) のテストを拾わない。各 worktree は自分の cwd で
-    // pnpm test を走らせるべきで、main worktree から横断実行しても解決パスや
-    // node_modules が一致せず壊れる
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**'],
+    // - tests/visual/**: Playwright tests (vitest が拾うと import 解決で壊れる)
+    // - .worktrees/**: 他 worktree のテストを拾わない (cwd / node_modules が不一致になる)
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**', '**/tests/visual/**'],
   },
 });

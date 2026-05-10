@@ -6,17 +6,27 @@ dist/
 coverage/
 .vite/
 
-# tsc -b output (vite.config and vitest.config composite project)
+# tsc -b output (vite.config / vitest.config / playwright.config composite project)
 vite.config.d.ts
 vite.config.js
 vitest.config.d.ts
 vitest.config.js
+playwright.config.d.ts
+playwright.config.js
 *.tsbuildinfo
 
 .vercel
 
 # brainstorming visual companion session files
 .superpowers/
+
+# Playwright
+playwright-report/
+test-results/
+# Windows snapshot baselines — must NOT be committed; Linux baselines (generated on CI /
+# ubuntu-latest) are the canonical reference. See "Visual regression baselines" section
+# in docs/CONTRIBUTING.md or run: pnpm test:visual:update on Linux to bootstrap.
+tests/visual/__snapshots__/**/*-win32.png
 
 # git worktrees
 .worktrees/

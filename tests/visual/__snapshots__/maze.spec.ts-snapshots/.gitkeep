@@ -1,0 +1,4 @@
+# Linux baselines go here. To generate:
+#   1. On Linux (or ubuntu-latest CI): pnpm test:visual:update
+#   2. Commit the *-linux.png files generated in this directory
+# Windows (*-win32.png) baselines are gitignored — do NOT commit them.

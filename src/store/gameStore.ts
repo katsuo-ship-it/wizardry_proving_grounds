@@ -1,7 +1,8 @@
 import { bindAnimation, runAnimation } from "@/engine/animation/orchestrator";
 import { bindEffect, runEffect } from "@/engine/effects/orchestrator";
 import { reduce } from "@/engine/state/reduce";
-import type { GameEvent, GameState, Lang } from "@/engine/state/types";
+import type { GameEvent, GameState, Lang, MazePosition } from "@/engine/state/types";
+import { EMPTY_PARTY } from "@/engine/state/types";
 import { db } from "@/persist/db";
 import { useStore } from "zustand";
 import { type StoreApi, createStore } from "zustand/vanilla";
@@ -103,4 +104,22 @@ export const gameStore = createGameStore();
 // React 用フック
 export function useGameStore<T>(selector: (s: GameStoreShape) => T): T {
   return useStore(gameStore, selector);
+}
+
+/**
+ * Test-only: forcibly replace state with maze phase + given pos.
+ * party is EMPTY_PARTY (0 characters) — Camp/inventory aren't tested.
+ * No-op in production builds (import.meta.env.DEV is false).
+ */
+export function devEnterMazeAt(pos: MazePosition): void {
+  if (!import.meta.env.DEV) return;
+  gameStore.setState((s) => ({
+    ...s,
+    state: { phase: "maze", pos, party: EMPTY_PARTY },
+  }));
+}
+
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  // @ts-expect-error global extension for tests only
+  window.__wpgDev = { devEnterMazeAt };
 }

@@ -852,102 +852,22 @@ DOM レイヤと Canvas レイヤは絶対配置で重ね、両方とも同じ v
 - `drawLine` / `drawRect` の極小ラッパのみ実装
 - 描画は state 変化時のみ（RAF を常時回さない、演出時のみ起動）
 
-### 迷宮 3D ワイヤーフレーム描画アルゴリズム
+### 迷宮 3D 描画 (Three.js + Shaded Walls)
 
-Apple II 版 Wizardry の 3D 視点は「**事前計算された遠近線分テーブル**」をルックアップする方式で、3D ジオメトリを毎フレーム計算しているわけではない。本実装も同方式を採用する。
+L1 マップを Three.js シーンに静的 mesh として展開し、`MeshLambertMaterial` +
+`Fog` で shaded walls 描画する。具体仕様は別ドキュメント
+`docs/superpowers/specs/2026-05-09-maze-3d-render-redesign-design.md` を参照。
 
-#### 視野定義
+主要要素:
+- Renderer: WebGLRenderer (280×192 Canvas)
+- Camera: PerspectiveCamera(fov=75, aspect=280/192, near=0.05, far=10)
+- Lighting: AmbientLight(0.4) + DirectionalLight(0.6)
+- Fog: 黒 1.5..4.0
+- Mesh: 壁 / 床 / 天井 / 扉 / 階段 マーカー (5 draw call)
+- Camera 補間: easeInOutQuad、前進 150ms / 回転 200ms
 
-```
-プレイヤーの向いている方向に対して:
-- 前方 4 セル分まで描画（depth = 0 ～ 3）
-  - depth 0: プレイヤー自身のセル
-  - depth 1: 1 マス先
-  - depth 2: 2 マス先
-  - depth 3: 3 マス先（最遠）
-- 左右 1 セルずつの「サイドビュー」を描画
-  - rel = -1 (左), 0 (中央), +1 (右)
-- 視野範囲: 4 (depth) × 3 (左/中/右) = 12 セル
-```
-
-#### 線分テーブルの構造
-
-```typescript
-// src/render/maze/wireframeTable.ts
-// 各 (depth, rel) ごとに「壁・扉・階段」を描く線分の固定座標を定義
-
-interface SegmentSet {
-  /** 前面の壁 (このセルの正面が壁の場合に描く) */
-  frontWall: LineSegment[];
-  /** 左面の壁 (このセルの左が壁の場合に描く) */
-  leftWall: LineSegment[];
-  /** 右面の壁 */
-  rightWall: LineSegment[];
-  /** 扉 (壁の代わりに描画) */
-  frontDoor: LineSegment[];
-  leftDoor: LineSegment[];
-  rightDoor: LineSegment[];
-  /** 階段マーカー (上り/下り) */
-  stairsUp: LineSegment[];
-  stairsDown: LineSegment[];
-}
-
-const WIREFRAME_TABLE: Record<Depth, Record<RelPos, SegmentSet>> = {
-  0: { '-1': {...}, '0': {...}, '+1': {...} },
-  1: { '-1': {...}, '0': {...}, '+1': {...} },
-  2: { '-1': {...}, '0': {...}, '+1': {...} },
-  3: { '-1': {...}, '0': {...}, '+1': {...} },
-};
-```
-
-座標値は Pascal の対応定数または tk421 ソースから抽出する。**抽出に失敗した場合のフォールバック**として、Apple II 実機スクリーンショット（Internet Archive で公開されている）から座標を実測する。
-
-#### 描画ルール
-
-1. プレイヤー位置 `pos` と方向 `dir` から、視野 12 セルのワールド座標を計算
-2. 各セル (depth, rel) について、`MAZE_L1` から壁・扉・特殊マスを引く
-3. **遠いセル → 近いセル** の順に描画（隠面消去のため）
-4. 各 (depth, rel) で `WIREFRAME_TABLE[depth][rel]` の対応セグメントを `drawLine` で描画
-5. 階段マーカーは `special` が `stairsUp`/`stairsDown` のときのみ追加
-
-#### 隠面消去（簡易）
-
-Wizardry の原典は「奥のセルから手前へ順に描き、手前の壁が背景を上書きする」という単純な方式。本実装も同じ:
-
-```typescript
-function renderMazeView(pos: MazePosition, ctx: CanvasRenderingContext2D): void {
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0, 0, 280, 192);
-  ctx.strokeStyle = 'white';
-
-  // 奥から手前へ
-  for (const depth of [3, 2, 1, 0]) {
-    for (const rel of [-1, 0, 1]) {
-      const cell = lookupCell(pos, depth, rel);
-      drawCellSegments(ctx, depth, rel, cell);
-    }
-  }
-}
-```
-
-#### 視野範囲の制限
-
-- 壁にぶつかった先のセルは「視野ブロック」されるべきだが、Apple II 原典では**全セル一律で描画**する単純実装。本実装も忠実にこれを踏襲（壁の向こうがチラ見えする原典の挙動を再現）
-- ただし `darkness` マスに入った場合は描画範囲を depth=0 のみに制限（Chapter 4 で実装）
-
-#### テスト戦略
-
-`renderMazeView` 自体の Canvas 出力比較は煩雑なため、**「視野計算ロジック」と「描画呼び出しシーケンス」を分離**してテストする:
-
-```typescript
-// 視野 12 セルのワールド座標計算 → 純関数 → Vitest で網羅
-function computeViewport(pos: MazePosition): ViewportCell[];
-
-// セグメント決定 → 純関数 → Vitest
-function selectSegments(cell: Cell, depth: Depth, rel: RelPos): LineSegment[];
-```
-
-ピクセル単位の最終 Canvas 比較は手動 E2E に任せる。
+`WIREFRAME_TABLE` 方式 (per-cell rect、Pascal 抽出フォールバック等) は
+2026-05-09 に廃止。
 
 ### HTML/CSS 層（メニュー・テキスト・ステータス）
 
