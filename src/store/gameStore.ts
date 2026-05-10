@@ -2,6 +2,7 @@ import { bindAnimation, runAnimation } from "@/engine/animation/orchestrator";
 import { bindEffect, runEffect } from "@/engine/effects/orchestrator";
 import { reduce } from "@/engine/state/reduce";
 import type { GameEvent, GameState, Lang } from "@/engine/state/types";
+import { db } from "@/persist/db";
 import { useStore } from "zustand";
 import { type StoreApi, createStore } from "zustand/vanilla";
 import { INTERNAL_EVENT_TYPES } from "./internalEventTypes";
@@ -50,6 +51,8 @@ export function createGameStore(): StoreApi<GameStoreShape> {
       // 設定系イベントは Reducer をバイパスして直接 store 更新
       if (event.type === "changeLanguage") {
         set({ lang: event.lang });
+        // IndexedDB に永続化 (fire-and-forget、失敗してもメモリ上の lang は反映済)
+        void db.setSetting("lang", event.lang);
         return;
       }
 
