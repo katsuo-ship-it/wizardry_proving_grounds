@@ -201,12 +201,12 @@ describe("listSlots party status extraction", () => {
     const idb = await openWizardryDB();
     const tx = idb.transaction("saveSlot", "readwrite");
     const store = tx.objectStore("saveSlot");
-    // biome-ignore lint/suspicious/noExplicitAny: idb.add accepts value without id
     await store.add({
       name: "Corrupt",
       createdAt: Date.now(),
       updatedAt: Date.now(),
       gameState: "{not valid json",
+      // biome-ignore lint/suspicious/noExplicitAny: idb.add accepts value without id (autoIncrement key)
     } as any);
     await tx.done;
 

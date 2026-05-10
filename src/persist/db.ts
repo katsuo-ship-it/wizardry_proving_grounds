@@ -102,9 +102,7 @@ export const db = {
             createdAt,
             updatedAt,
             partyStatus,
-            ...(party?.outAtPosition !== undefined
-              ? { outAtPosition: party.outAtPosition }
-              : {}),
+            ...(party?.outAtPosition !== undefined ? { outAtPosition: party.outAtPosition } : {}),
           };
         } catch {
           return {
