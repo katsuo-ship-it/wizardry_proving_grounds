@@ -16,7 +16,8 @@
  *   dead-end    (0, 0)  — n=wall, w=wall, s=wall, e=open: only east is open; claustrophobic
  *   door-wall-mix (6,1) — n=open, w=door, e=open, s=open: door on side wall; tests the
  *                          old bug where wall-boundary rendering broke at door cells
- *   darkness    (9, 1)  — special=darkness: renderer should output a pitch-black scene
+ *   darkness    (9, 1)  — special=darkness: per spec §307 currently renders normally
+ *                          (Chapter 4 changes behavior); baseline captures normal render
  */
 
 import { expect, test } from "@playwright/test";
@@ -69,7 +70,8 @@ const VIEWPOINTS = [
     name: "darkness",
     x: 9,
     y: 1,
-    // special=darkness: renderer outputs pitch-black scene; confirms darkness path
+    // special=darkness: per spec §307 renders normally for Chapter 1
+    // (Chapter 4 will change behavior); baseline captures the current normal render
   },
 ] as const;
 
