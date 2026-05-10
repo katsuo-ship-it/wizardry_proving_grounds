@@ -155,6 +155,7 @@ export const MESSAGES = {
     "utilities.menu.restart": "Restart Out Party",
     "utilities.restart.title": "OUT PARTIES",
     "utilities.restart.empty": "No saved parties to restart.",
+    "utilities.restart.noOutParty": "No out parties.",
     // Storage (M5)
     "storage.unavailable": "Browser storage unavailable. Save will not persist.",
     // Settings Export/Import (M5)
@@ -319,6 +320,7 @@ export const MESSAGES = {
     "utilities.menu.restart": "OUT パーティの ふっき",
     "utilities.restart.title": "OUT パーティ",
     "utilities.restart.empty": "ふっき できる パーティは ありません。",
+    "utilities.restart.noOutParty": "OUT パーティは いません。",
     // Storage (M5)
     "storage.unavailable": "ブラウザストレージが りようできません。セーブは ほぞん されません。",
     // Settings Export/Import (M5)
