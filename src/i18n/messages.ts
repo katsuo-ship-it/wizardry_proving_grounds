@@ -155,7 +155,7 @@ export const MESSAGES = {
     "utilities.menu.restart": "Restart Out Party",
     "utilities.restart.title": "OUT PARTIES",
     "utilities.restart.empty": "No saved parties to restart.",
-    "utilities.restart.noOutParty": "No out parties.",
+    "utilities.restart.noOutParty": "No OUT parties.",
     // Storage (M5)
     "storage.unavailable": "Browser storage unavailable. Save will not persist.",
     // Settings Export/Import (M5)
