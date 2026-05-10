@@ -113,9 +113,7 @@ for (const v of VIEWPOINTS) {
       // First RAF lets the browser process pending GL work; second lets it composite.
       await page.evaluate(
         () =>
-          new Promise<void>((r) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => r())),
-          ),
+          new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
       );
 
       const canvas = page.locator(".maze-canvas");

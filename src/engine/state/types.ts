@@ -13,6 +13,10 @@ export interface SaveSlotInfo {
   name: string;
   createdAt: number;
   updatedAt: number;
+  /** パーティの居場所状態。"out" は Camp→Quit 等で迷宮内に居残り中。 */
+  partyStatus: "inTown" | "inMaze" | "out";
+  /** "out" 時のみ、最後にいた位置 (Restart 時の復帰先)。他の状態では undefined。 */
+  outAtPosition?: MazePosition;
 }
 
 // パーティ・キャラ

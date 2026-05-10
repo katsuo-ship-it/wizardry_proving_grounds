@@ -43,7 +43,10 @@ describe("title phase reducer", () => {
   it("continueGame from continueMenu → loading", () => {
     const at: GameState = {
       phase: "title",
-      sub: { kind: "continueMenu", slots: [{ id: 1, name: "X", createdAt: 0, updatedAt: 0 }] },
+      sub: {
+        kind: "continueMenu",
+        slots: [{ id: 1, name: "X", createdAt: 0, updatedAt: 0, partyStatus: "inTown" }],
+      },
     };
     const next = reduce(at, { type: "continueGame", slotId: 1 });
     expect(next).toEqual({

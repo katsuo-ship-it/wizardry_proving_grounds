@@ -14,17 +14,25 @@ export function RestartList() {
   const [slots, setSlots] = useState<SaveSlotInfo[]>([]);
 
   useEffect(() => {
-    // M5 範囲: 全スロットをリスト表示。OUT 状態判定は将来
     db.listSlots().then(setSlots);
   }, []);
+
+  // OUT 状態のスロットのみ表示 (1981 原典の Restart Out Party 仕様準拠)
+  const outSlots = slots.filter((s) => s.partyStatus === "out");
+
+  // 空メッセージは 2 ケース:
+  // - そもそもセーブが 1 件もない → "empty"
+  // - セーブはあるが OUT のパーティが居ない → "noOutParty"
+  const emptyMessage =
+    slots.length === 0 ? t("utilities.restart.empty") : t("utilities.restart.noOutParty");
 
   return (
     <div className="menu-screen">
       <Frame title={t("utilities.restart.title")}>
-        {slots.length === 0 && <p>{t("utilities.restart.empty")}</p>}
+        {outSlots.length === 0 && <p>{emptyMessage}</p>}
         <Menu
           items={[
-            ...slots.map((slot, i) => ({
+            ...outSlots.map((slot, i) => ({
               hotkey: String(i + 1),
               label: `${slot.name}  (${new Date(slot.updatedAt).toLocaleString()})`,
               onSelect: () => dispatch({ type: "restartParty", slotId: slot.id }),
