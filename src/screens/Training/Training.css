@@ -5,7 +5,8 @@
   font-family: inherit;
   font-size: var(--font-size-glyph);
   padding: calc(1 * var(--vp)) calc(2 * var(--vp));
-  width: calc(20 * var(--vp));
+  /* 8 半角文字 (8 × 8vp) + 左右 padding (2 × 2vp) + border (2 × 1vp) + 余裕 = 72vp */
+  width: calc(72 * var(--vp));
 }
 
 .attribute-list {
